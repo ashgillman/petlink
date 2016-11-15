@@ -11,6 +11,7 @@ def count(events: np.array, tag: str) -> int:
         list(TAGS)[list(TAGS).index(tag) + 1]]
     return _count_events_in_range(events, lower, upper)
 
+
 def _count_events_in_range(events: np.array, lower: DTYPE,
                            upper: DTYPE) -> int:
     count = 0
