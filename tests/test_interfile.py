@@ -135,3 +135,23 @@ def test_Interfile_dont_read_data_relative_without_sourcefile(tmpdir):
 
     # make sure it was the correct error
     assert 'source file' in str(e)
+
+
+def test_Interfile_read_data_memmap(tmpdir):
+    header_f = tmpdir.join('interfile.h')
+    data_f = tmpdir.join('interfile.hx')
+
+    header_content = '\n'.join(t[1][0] for t in test_lines)
+    header_content += '\nname of data file := '
+    header_content += str(data_f)
+    header_content += '\n'
+
+    data_content = np.arange(10, dtype=PL_DTYPE)
+
+    header_f.write(header_content)
+    data_content.tofile(str(data_f))
+
+    parsed = Interfile(str(header_f))
+    parsed_data = parsed.get_data(memmap=True)
+    assert (parsed_data == data_content).all()
+    assert isinstance(parsed_data, np.memmap)
