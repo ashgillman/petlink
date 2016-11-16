@@ -9,30 +9,38 @@ from ..interfile import Interfile, InvalidInterfileError, PL_DTYPE
 
 
 test_lines = (
-    ('magic'         , ('!INTERFILE:=', 'INTERFILE', '', '!')),
-    ('no_value'      , ('no value :=', 'no value', '', '')),
-    ('int'           , ('int := 0', 'int', 0, '')),
-    ('float'         , ('float := 0.0', 'float', 0., '')),
-    ('string'        , ('string := Hello, World!',
-                        'string', 'Hello, World!', '')),
-    ('list'          , ('list := { 1, 2, 3 }', 'list', [1, 2, 3], '')),
-    ('list_unspaced' , ('list unspaced := {1,2,3}',
-                        'list unspaced', [1, 2, 3], '')),
-    ('path'          , ('path := \\\\path\\to\\file.file',
-                        'path', os.path.join(
-                            os.path.sep, 'path', 'to', 'file.file'),
-                        '')),
-    ('blank'         , ('', None, None, '')),
-    ('comment'       , ('; comment', None, None, '')),
-    ('empty_comment' , (';', None, None, '')),
-    ('exclaim'       , ('!exclaim :=',
-                        'exclaim', '', '!')),
-    ('percent'       , ('%percent :=',
-                        'percent', '', '%')),
-    ('spaced'        , ('key 1 := 1', 'key 1', 1, '')),
-    ('spaced_left'   , ('key 2 :=2', 'key 2', 2, '')),
-    ('spaced_right'  , ('key 3:= 3', 'key 3', 3, '')),
-    ('unspaced'      , ('key 4:=4', 'key 4', 4, '')),
+    ('magic'             , ('!INTERFILE:=', 'INTERFILE', '', '!')),
+    ('no_value'          , ('no value :=', 'no value', '', '')),
+    ('int'               , ('int := 0', 'int', 0, '')),
+    ('float'             , ('float := 0.0', 'float', 0., '')),
+    ('string'            , ('string := Hello, World!',
+                            'string', 'Hello, World!', '')),
+    ('list'              , ('list := { 1, 2, 3 }',
+                            'list', [1, 2, 3], '')),
+    ('list_unspaced'     , ('list unspaced := {1,2,3}',
+                            'list unspaced', [1, 2, 3], '')),
+    ('path'              , ('path := \\\\path\\to\\file.file',
+                            'path', os.path.join(
+                                os.path.sep, 'path',
+                                'to', 'file.file'),
+                            ''))            ,
+    ('date (yyyy:mm:dd)' , ('date (yyyy:mm:dd) := 2016:11:15',
+                            'date (yyyy:mm:dd)', '2016:11:15', '')),
+    ('blank'             , ('', None, None, '')),
+    ('comment'           , ('; comment', None, None, '')),
+    ('empty_comment'     , (';', None, None, '')),
+    ('exclaim'           , ('!exclaim :=',
+                            'exclaim'       , '', '!')),
+    ('percent'           , ('%percent :=',
+                            'percent'       , '', '%')),
+    ('spaced'            , ('key 1 := 1', 'key 1', 1, '')),
+    ('spaced_left'       , ('key 2 :=2', 'key 2', 2, '')),
+    ('spaced_right'      , ('key 3:= 3', 'key 3', 3, '')),
+    ('unspaced'          , ('key 4:=4', 'key 4', 4, '')),
+    ('colons:in:key'     , ('colons:in:key:=colons:in:value',
+                            'colons:in:key' , 'colons:in:value', '')),
+    ('(brackets)'        , ('(brackets):=(value)',
+                            '(brackets)'    , '(value)', '')),
 )
 
 
@@ -96,8 +104,8 @@ def test_Interfile_read_data_absolute(tmpdir):
     data_f = tmpdir.join('interfile.hx')
 
     header_content = '\n'.join(t[1][0] for t in test_lines)
-    header_content += '\nname of data file := '
-    header_content += str(data_f)
+    header_content += '\nname of data file := \\'
+    header_content += str(data_f).replace('/', '\\')
     header_content += '\n'
 
     data_content = np.arange(10, dtype=PL_DTYPE)
@@ -142,9 +150,11 @@ def test_Interfile_read_data_memmap(tmpdir):
     data_f = tmpdir.join('interfile.hx')
 
     header_content = '\n'.join(t[1][0] for t in test_lines)
-    header_content += '\nname of data file := '
-    header_content += str(data_f)
+    header_content += '\nname of data file := \\'
+    header_content += str(data_f).replace('/', '\\')
     header_content += '\n'
+
+    print(header_content)
 
     data_content = np.arange(10, dtype=PL_DTYPE)
 
