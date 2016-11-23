@@ -189,7 +189,7 @@ class Interfile():
         if isinstance(value.value, list):
             if value.inline:
                 value_str = '{list_start} {list} {list_end}'.format(
-                    list=','.join(str(v) for v in value.value),
+                    list=', '.join(str(v) for v in value.value),
                     list_start=self.INTERFILE_LIST_START,
                     list_end=self.INTERFILE_LIST_END)
             else:
@@ -274,7 +274,7 @@ class Interfile():
             header[key_token.key] = Value(
                 key_type=key_token.key_type, value=value,
                 units=(key_token.units if 'units' in key_token else None),
-                inline=(key_token.index is not None))
+                inline=('index' not in key_token))
             print(key_token.key, ':', header[key_token.key])
 
             # try:

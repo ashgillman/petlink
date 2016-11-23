@@ -269,3 +269,18 @@ def test_Interfile_read_data_memmap(tmpdir):
     parsed_data = parsed.get_data(memmap=True)
     assert (parsed_data == data_content).all()
     assert isinstance(parsed_data, np.memmap)
+
+
+def test_Interfile_maintains_inline_noninline():
+    inline = [test for test in test_lines if test[0] == 'list'][0]
+    noninline = [test for test in test_lines if test[0] == 'vector2'][0]
+
+    inline_lines = len(str(Interfile(
+        '\n'.join((test_lines[0][1][0],
+                   inline[1][0],
+                   test_lines[-1][1][0])))).splitlines())
+    noninline_lines = len(str(Interfile(
+        '\n'.join((test_lines[0][1][0],
+                   noninline[1][0],
+                   test_lines[-1][1][0])))).splitlines())
+    assert noninline_lines > inline_lines
