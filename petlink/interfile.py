@@ -165,6 +165,14 @@ class Interfile():
                     sep=self.INTERFILE_SEP)
         return string
 
+    def __repr__(self):
+        return "Interfile('{!s}')".format(self.replace('\n', '\\n'))
+
+    def to_filename(self, filename):
+        """Write interfile to file."""
+        with open(filename, 'w+') as fp:
+            fp.write(str(self))
+
     def format_line(self, key, value):
         """Format an interfile line."""
         unit_str = (
