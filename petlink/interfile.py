@@ -1,8 +1,11 @@
 """Interfile I/O."""
 
+import logging
+
 import os
 import sys
 import ntpath
+import mmap
 from collections import OrderedDict, namedtuple
 import textwrap
 from functools import reduce
@@ -10,24 +13,88 @@ import pyparsing as pp
 try:
     import numpy as np
     from .petlink32 import DTYPE as PL_DTYPE
-except ImportError:
+except ImportError as err:
     print("Warning: Can't import NumPy. Interfile data loading is "
           'unsupported.',
           file=sys.stderr)
+    np_err = err
+try:
+    import dicom
+except ImportError as err:
+    print("Warning: Can't import PyDICOM. PTD data loading is unsupported.",
+          file=sys.stderr)
+    dicom_err = err
+
+
+DICOM_N_ZEROS_BEFORE_MAGIC = 128
+DICOM_MAGIC = b'\x00' * DICOM_N_ZEROS_BEFORE_MAGIC + b'DICM'
+PTD_READ_DEFER_SIZE = 10 * 1024
+CSA_DATA_INFO = (0x0029, 0x1010)
+CSA_IMAGE_HEADER_INFO = (0x0029, 0x1110)
+CSA_SERIES_HEADER_INFO = (0x0029, 0x1120)
 
 
 Value = namedtuple('Value', 'value key_type units inline')
 Value.__new__.__defaults__ = (None, '', None, False)
-# class Value():
-#     """Interfile value store, including metadata."""
-#     def __init__(self, value=None, key_type='', units=None, inline=False):
-#         self.value = value
-#         self.key_type = key_type
-#         self.units = units
-#         self.inline = inline
 
 
-class Interfile():
+def load(filename):
+    """Load interfile data, either from a plaintext header file or Siemens'
+    .ptd format.
+
+    This mostly exists to be similar in API to Nibabel.
+    """
+    return Interfile(sourcefile=filename)
+
+
+def load_plaintext(filename):
+    """Load interfile data, from a plaintext header file."""
+    return Interfile(**_from_plaintext(filename))
+
+def _from_plaintext(filename):
+    """Load interfile creation parameters, from a plaintext header file."""
+    try:
+        with open(filename, 'rt') as fp:
+            source = fp.read()
+    except TypeError:
+        raise FileNotFoundError(filename)
+
+    return dict(source=source, sourcefile=filename)
+
+
+def load_ptd(filename):
+    """Load interfile data, from Siemens' .ptd format.
+
+    This format consists of the first part as a data file, and the latter part
+    as a DICOM file.
+    """
+    return Interfile(**_from_ptd(filename))
+
+def _from_ptd(filename):
+    with open(filename, 'rb') as fp:
+        # skip to DICOM header
+        fp.seek(
+            mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
+            .find(DICOM_MAGIC))
+
+        data_length = fp.tell()
+
+        # read the remaining file as DICOM
+        dcm = dicom.filereader.read_partial(fp)
+
+    # TODO?: dcm[CSA_IMAGE_HEADER_INFO].value
+
+    source = dcm[CSA_DATA_INFO].value.decode().rstrip('\0')
+    interfile = Interfile(source)
+    data = np.memmap(
+        filename, mode='r', shape=(data_length / PL_DTYPE().itemsize, ),
+        dtype=PL_DTYPE,
+        offset=interfile.header.get(Interfile.offset_key, 0).value)
+
+    return dict(source=source, sourcefile=filename, data=data)
+
+
+class Interfile(object):
     """Read two-part (header + data) interfile images.
 
     Attributes:
@@ -70,7 +137,7 @@ class Interfile():
     data_file_key = 'name of data file'
     offset_key = 'data offset in bytes'
 
-    def __init__(self, interfile):
+    def __init__(self, source=None, sourcefile=None, header=None, data=None):
         """Read and/or parse interfile text.
 
         Inputs:
@@ -84,34 +151,47 @@ class Interfile():
         if not self.value_parser:
             self._initialise_value_parser()
 
-        try:
-            # First, assume `interfile` is a filename.
-            self.sourcefile = interfile
-            if not os.path.exists(self.sourcefile):
-                raise FileNotFoundError(self.sourcefile)
+        self.source = source
+        self.sourcefile = sourcefile
+        self.header = header
+        self._data = data
 
-            with open(self.sourcefile, 'rt') as fp:
-                self.source = fp.read()
+        if sourcefile and not source:
+            try:
+                sourced_attrs = _from_plaintext(sourcefile)
+            except (InvalidInterfileError, UnicodeDecodeError):
+                sourced_attrs = _from_ptd(sourcefile)
+            for k, v in sourced_attrs.items():
+                if getattr(self, k, None) is None:
+                    setattr(self, k, v)
 
-        except (FileNotFoundError, OSError):
-            # Otherwise, assume `interfile` is the header text.
-            self.sourcefile = None
-            self.source = interfile
-
-        self.header = self._parse(self.source)
+        if self.source:
+            try:
+                self.header = self._parse(self.source)
+            except InvalidInterfileError as err:
+                logger = logging.getLogger(__name__)
+                logger.error("Couldn't parse:\n%s", self.source)
+                raise err
+        else:
+            logger = logging.getLogger(__name__)
+            logger.warn('Interfile has no source, so header is None.')
+            logger.warn(self.source)
 
     def get_data(self, memmap=False):
         """Retrieve the image data. Optionally, may be returned as a
         numpy memmap rather than an array to avoid loading into
         memory.
         """
+        if self._data:
+            return data
+
         # Don't bother if we never imported NumPy
         try:
             np
-        except NameError:
-            raise ImportError(
-                'Unable to import NumPy: required for Interfile data '
-                'reading.')
+        except NameError as err:
+            raise Exception(
+                'Unable to import NumPy: required for Interfile data reading.'
+            ) from err
 
         # check whether the file is absolute or relative
         data_file = self[self.data_file_key]
@@ -119,15 +199,15 @@ class Interfile():
             try:
                 data_file = os.path.join(
                     os.path.dirname(self.sourcefile), data_file)
-            except AttributeError:
+            except AttributeError as err:
                 raise FileNotFoundError(
                     'Relative filenames are only supported when '
-                    'source file is known.')
+                    'source file is known.') from err
 
         if memmap:
             return np.memmap(
                 data_file, dtype=PL_DTYPE, mode='r',
-                offset=self.header.get(self.offset_key, 0))
+                offset=self.header.get(self.offset_key, 0).value)
         else:
             return np.fromfile(data_file,
                                #offset = self.header[self.offset_key],
@@ -275,7 +355,6 @@ class Interfile():
                 key_type=key_token.key_type, value=value,
                 units=(key_token.units if 'units' in key_token else None),
                 inline=('index' not in key_token))
-            print(key_token.key, ':', header[key_token.key])
 
             # try:
             #     header[key_token.key] = value_token.value#.asList()
