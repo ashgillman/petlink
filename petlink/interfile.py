@@ -372,7 +372,7 @@ class Interfile():
         Interfile lines into key-value pairs. Comments are ignored.
         """
         # newline is significant
-        pp.ParserElement.setDefaultWhitespaceChars(' \t')
+        pp.ParserElement.setDefaultWhitespaceChars(' \t\r')
 
         # constants
         semi = pp.Literal(';')
