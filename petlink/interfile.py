@@ -21,7 +21,7 @@ except ImportError as err:
 try:
     import dicom
 except ImportError as err:
-    print("Warning: Can't import PyDICOM. PTD data loading is unsupported.",
+    print("Warning: Can't import PyDICOM. .ptd data loading is unsupported.",
           file=sys.stderr)
     dicom_err = err
 
@@ -80,7 +80,7 @@ def _from_ptd(filename):
         data_length = fp.tell()
 
         # read the remaining file as DICOM
-        dcm = dicom.filereader.read_partial(fp)
+        dcm = dicom.filereader.read_file(fp)
 
     # TODO?: dcm[CSA_IMAGE_HEADER_INFO].value
 
@@ -166,11 +166,12 @@ class Interfile(object):
                     setattr(self, k, v)
 
         if self.source:
+            # Parse the source.
             try:
                 self.header = self._parse(self.source)
             except InvalidInterfileError as err:
                 logger = logging.getLogger(__name__)
-                logger.error("Couldn't parse:\n%s", self.source)
+                logger.error("Couldn't parse:\n%s", repr(self.source))
                 raise err
         else:
             logger = logging.getLogger(__name__)
@@ -317,7 +318,7 @@ class Interfile(object):
         except pp.ParseException as err:
             error_message = str(err) + '\n'
             error_message += get_parse_exception_context(err, source)
-            raise InvalidInterfileError(error_message)
+            raise InvalidInterfileError(error_message) from err
 
         # Now parse each individual key and value
         header = OrderedDict()
@@ -328,7 +329,7 @@ class Interfile(object):
             except pp.ParseException as err:
                 error_message = str(err) + '\n'
                 error_message += token.key + ' : ' + token.value
-                raise InvalidInterfileError(error_message)
+                raise InvalidInterfileError(error_message) from err
 
             # Special cases
             if key_token.key == cls.INTERFILE_MAGIC_END[1:].lower():
@@ -355,12 +356,6 @@ class Interfile(object):
                 key_type=key_token.key_type, value=value,
                 units=(key_token.units if 'units' in key_token else None),
                 inline=('index' not in key_token))
-
-            # try:
-            #     header[key_token.key] = value_token.value#.asList()
-
-            # except AttributeError:
-            #     header[token['key'][0]] = token['value']
 
         # any non-inline vectors need to be de-indexed
         for key, value in header.items():
