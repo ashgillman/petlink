@@ -468,7 +468,7 @@ class Interfile(object):
         sof = (magic + equals + endl).suppress()
         key_values = pp.ZeroOrMore(pp.Group(key + value))
         comment = semi + pp.restOfLine + endl
-        empty = pp.LineStart() + endl
+        empty = pp.LineStart().leaveWhitespace() + endl
 
         key_value_parser = sof + key_values
         key_value_parser.ignore(comment)
