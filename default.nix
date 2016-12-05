@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {}
+{ pkgs ? import <mypkgs> {}
 , stdenv ? pkgs.stdenv
 , pythonPackages ? pkgs.python34Packages
 }:
@@ -15,6 +15,7 @@ let
     [
       python     # The Interpreter itself
       numpy      # MATLAB-like vectorised computation
+      pydicom    # DICOM reading for .ptd files
       pyparsing  # Parsing of text
     ];
 

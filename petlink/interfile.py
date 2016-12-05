@@ -91,16 +91,17 @@ def _from_ptd(filename):
         dtype=PL_DTYPE,
         offset=interfile.header.get(Interfile.offset_key, 0).value)
 
-    return dict(source=source, sourcefile=filename, data=data)
+    return dict(source=source, sourcefile=filename, data=data, dcm=dcm)
 
 
 class Interfile(object):
     """Read two-part (header + data) interfile images.
 
     Attributes:
-    - sourcefile: filename of header souce
-    - source: header file contents
-    - header: parsed header contents as an OrderedDict
+      sourcefile: Filename of header souce.
+      source: Header file contents.
+      header: Parsed header contents as an OrderedDict.
+      dcm: If read from a .ptd file, the DICOM data.
 
     To access values, index the Interfile object directly. Use the header
     attribute only if access to metadata is required.
@@ -137,7 +138,8 @@ class Interfile(object):
     data_file_key = 'name of data file'
     offset_key = 'data offset in bytes'
 
-    def __init__(self, source=None, sourcefile=None, header=None, data=None):
+    def __init__(self, source=None, sourcefile=None, header=None, data=None,
+                 dcm=None):
         """Read and/or parse interfile text.
 
         Inputs:
@@ -155,8 +157,10 @@ class Interfile(object):
         self.sourcefile = sourcefile
         self.header = header
         self._data = data
+        self.dcm = dcm
 
         if sourcefile and not source:
+            # Read from sourcefile and set any unset attributes.
             try:
                 sourced_attrs = _from_plaintext(sourcefile)
             except (InvalidInterfileError, UnicodeDecodeError):
