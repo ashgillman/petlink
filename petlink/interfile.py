@@ -232,8 +232,15 @@ class Interfile(object):
         used.
         """
         if isinstance(value, Value):
+            # User has done the work
             self.header[key] = value
+        elif key in self.header:
+            # replace the value for an existing key, retaining metadata
+            meta = self.header[key]._asdict()
+            del meta['value']
+            self.header[key] = Value(value=value, **meta)
         else:
+            # create a new key with default metadata
             self.header[key] = Value(value=value)
 
     def __str__(self):
