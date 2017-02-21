@@ -20,10 +20,12 @@ except ImportError as err:
     np_err = err
 try:
     import dicom
+    from dicom.errors import InvalidDicomError
 except ImportError as err:
     print("Warning: Can't import PyDICOM. .ptd data loading is unsupported.",
           file=sys.stderr)
     dicom_err = err
+    class InvalidDicomError(Exception): pass
 
 
 DICOM_N_ZEROS_BEFORE_MAGIC = 128
@@ -32,6 +34,7 @@ PTD_READ_DEFER_SIZE = 10 * 1024
 CSA_DATA_INFO = (0x0029, 0x1010)
 CSA_IMAGE_HEADER_INFO = (0x0029, 0x1110)
 CSA_SERIES_HEADER_INFO = (0x0029, 0x1120)
+MAX_PLAINTEXT_IFL_SIZE = 10 * 1024 * 1024 # 10 MB
 
 
 Value = namedtuple('Value', 'value key_type units inline')
@@ -55,7 +58,7 @@ def _from_plaintext(filename):
     """Load interfile creation parameters, from a plaintext header file."""
     try:
         with open(filename, 'rt') as fp:
-            source = fp.read()
+            source = fp.read(MAX_PLAINTEXT_IFL_SIZE)
     except TypeError:
         raise FileNotFoundError(filename)
 
@@ -73,9 +76,12 @@ def load_ptd(filename):
 def _from_ptd(filename):
     with open(filename, 'rb') as fp:
         # skip to DICOM header
-        fp.seek(
-            mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
-            .find(DICOM_MAGIC))
+        try:
+            fp.seek(
+                mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
+                .find(DICOM_MAGIC))
+        except OSError as err:
+            raise InvalidDicomError("Can't find DICOM magic") from err
 
         data_length = fp.tell()
 
@@ -162,9 +168,9 @@ class Interfile(object):
         if sourcefile and not source:
             # Read from sourcefile and set any unset attributes.
             try:
-                sourced_attrs = _from_plaintext(sourcefile)
-            except (InvalidInterfileError, UnicodeDecodeError):
                 sourced_attrs = _from_ptd(sourcefile)
+            except InvalidDicomError:
+                sourced_attrs = _from_plaintext(sourcefile)
             for k, v in sourced_attrs.items():
                 if getattr(self, k, None) is None:
                     setattr(self, k, v)
