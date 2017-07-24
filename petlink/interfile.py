@@ -507,7 +507,7 @@ class Interfile(object):
 
         # types
         int_ = pp.Regex(r'[+-]?\d+').setParseAction(lambda t: int(t[0]))
-        float_ = (pp.Regex(r'[+-]?\d+\.\d*([eE]\d+)?')
+        float_ = (pp.Regex(r'[+-]?\d+\.\d*([eE][+-]?\d+)?')
                   .setParseAction(lambda t: float(t[0])))
 
         # values
