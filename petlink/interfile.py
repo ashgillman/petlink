@@ -93,10 +93,14 @@ def _from_ptd(filename):
 
     source = dcm[CSA_DATA_INFO].value.decode().rstrip('\0')
     interfile = Interfile(source)
-    data = np.memmap(
-        filename, mode='r', shape=(data_length / PL_DTYPE().itemsize, ),
-        dtype=PL_DTYPE,
-        offset=interfile.header.get(Interfile.offset_key, 0).value)
+    try:
+        data = np.memmap(
+            filename, mode='r', shape=(data_length / PL_DTYPE().itemsize, ),
+            dtype=PL_DTYPE,
+            offset=interfile.header.get(Interfile.offset_key, 0).value)
+    except TypeError:
+        # happens, e.g., with norm .ptd's
+        data = None
 
     return dict(source=source, sourcefile=filename, data=data, dcm=dcm)
 
