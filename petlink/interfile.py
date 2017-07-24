@@ -6,6 +6,7 @@ import os
 import sys
 import ntpath
 import mmap
+import datetime
 from collections import OrderedDict, namedtuple
 import textwrap
 from functools import reduce
@@ -224,6 +225,73 @@ class Interfile(object):
                                #offset = self.header[self.offset_key],
                                dtype=PL_DTYPE)
 
+    def get_datetime(self, key):
+        # load data and time
+        date_v = self.header[key.lower() + ' date']
+
+        time_v = self.header[key.lower() + ' time']
+
+        date_fmt, time_fmt = self._get_date_time_formats_from_units(
+            date_v, time_v)
+
+        # load time zone
+        # e.g., GMT+10:00
+        tz_idx = time_v.units.lower().find('gmt')
+        if tz_idx >= 0:
+            tz_str = time_v.units.lower()[tz_idx:]
+            tz_offset = datetime.timedelta(hours=int(tz_str[3:6]),
+                                           minutes=int(tz_str[7:9]))
+        else:
+            tz_offset = datetime.timedelta()
+        tz = datetime.timezone(tz_offset)
+
+        # parse date and time
+        datetime_ = datetime.datetime.strptime(
+            date_v.value + time_v.value, date_fmt + time_fmt, tzinfo=tz)
+
+        return datetime_
+
+    def set_datetime(self, key, new):
+        # load data and time
+        date_v = self.header[key.lower() + ' date']
+
+        time_v = self.header[key.lower() + ' time']
+
+        date_fmt, time_fmt = self._get_date_time_formats_from_units(
+            date_v, time_v)
+
+        # load time zone
+        # e.g., GMT+10:00
+        tz_idx = time_v.units.lower().find('gmt')
+        if tz_idx >= 0:
+            tz_str = time_v.units.lower()[tz_idx:]
+            tz_offset = datetime.timedelta(hours=int(tz_str[3:6]),
+                                           minutes=int(tz_str[7:9]))
+        else:
+            tz_offset = datetime.timedelta()
+        tz = datetime.timezone(tz_offset)
+
+        # set date and time
+        self[key.lower() + ' date'] = new.astimezone(tz).strftime(date_fmt)
+        self[key.lower() + ' time'] = new.astimezone(tz).strftime(time_fmt)
+
+    def _get_date_time_formats_from_units(date_value, time_value):
+        date_fmt = (date_value.units
+                    .lower()
+                    .strip()
+                    .replace('yyyy', '%Y')
+                    .replace('yy',   '%y')
+                    .replace('mm',   '%m')
+                    .replace('dd',   '%d'))
+        time_fmt = (time_value.units
+                    .lower()
+                    .split()[0]
+                    .strip()
+                    .replace('hh', '%H')
+                    .replace('mm', '%M')
+                    .replace('ss', '%S'))
+        return date_fmt, time_fmt
+
     def __getitem__(self, key):
         """Indexing is shorthand to get actual value from header. It is also
         caseless."""
@@ -264,7 +332,7 @@ class Interfile(object):
         return string
 
     def __repr__(self):
-        return "Interfile('{!s}')".format(self.replace('\n', '\\n'))
+        return "Interfile('{!s}')".format(str(self).replace('\n', '\\n'))
 
     def to_filename(self, filename):
         """Write interfile to file."""
@@ -363,6 +431,7 @@ class Interfile(object):
             # If we have a non-inline vector, store it as a 2-tuple with index
             # first. We will parse the index out later.
             if 'index' in key_token:
+                # TODO, this should fail since we now parse index as ZeroOrMore
                 indexed = (key_token.index, value_token.value)
                 try:
                     value = header[key_token.key].value + [indexed]
@@ -413,7 +482,7 @@ class Interfile(object):
             (units_start + pp.SkipTo(units_end, include=True))
             .setParseAction(lambda t: t[0])
             .setResultsName('units'))
-        index = pp.Optional(
+        index = pp.ZeroOrMore(
             (index_start + pp.Word(pp.nums) + index_end)
             .setParseAction(lambda t: int(t[0]))
             .setResultsName('index'))
@@ -467,9 +536,9 @@ class Interfile(object):
 
         # constants
         semi = pp.Literal(';')
-        equals = (pp.Optional(pp.Word(' ')).suppress() +
-                  pp.Literal(cls.INTERFILE_SEP).suppress() +
-                  pp.Optional(pp.Word(' ')).suppress())
+        # equals = (pp.Optional(pp.Word(' ')).suppress() +
+        #           pp.Literal(cls.INTERFILE_SEP).suppress() +
+        #           pp.Optional(pp.Word(' ')).suppress())
         equals = pp.Literal(cls.INTERFILE_SEP).suppress()
         endl = pp.LineEnd().suppress()
         magic = pp.CaselessLiteral(cls.INTERFILE_MAGIC)
