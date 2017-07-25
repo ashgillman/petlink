@@ -239,19 +239,17 @@ class Interfile(object):
             date_v, time_v)
 
         # load time zone
-        # e.g., GMT+10:00
+        # e.g., GMT+10:00, gmt+00:00
         tz_idx = time_v.units.lower().find('gmt')
         if tz_idx >= 0:
-            tz_str = time_v.units.lower()[tz_idx:]
-            tz_offset = datetime.timedelta(hours=int(tz_str[3:6]),
-                                           minutes=int(tz_str[7:9]))
+            tz_str = time_v.units[tz_idx+3:tz_idx+9].replace(':', '')
         else:
-            tz_offset = datetime.timedelta()
-        tz = datetime.timezone(tz_offset)
+            tz_str = '+0000'
 
         # parse date and time
         datetime_ = datetime.datetime.strptime(
-            date_v.value + time_v.value, date_fmt + time_fmt, tzinfo=tz)
+            ' '.join((date_v.value, time_v.value, tz_str)),
+            ' '.join((date_fmt,     time_fmt,     '%z')))
 
         return datetime_
 
@@ -279,7 +277,7 @@ class Interfile(object):
         self[key.lower() + ' date'] = new.astimezone(tz).strftime(date_fmt)
         self[key.lower() + ' time'] = new.astimezone(tz).strftime(time_fmt)
 
-    def _get_date_time_formats_from_units(date_value, time_value):
+    def _get_date_time_formats_from_units(self, date_value, time_value):
         date_fmt = (date_value.units
                     .lower()
                     .strip()
