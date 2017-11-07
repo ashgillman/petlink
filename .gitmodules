@@ -1,0 +1,3 @@
+[submodule "petlink-test-data"]
+	path = petlink/tests/data
+	url = git@github.com:ashgillman/petlink-test-data.git
