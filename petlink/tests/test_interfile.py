@@ -21,6 +21,7 @@ class IsNone():
         return other is None
 
 
+# ('name' , ('line', 'expected_key', 'expected_value', 'expected_key_type'))
 test_lines = (
     ('magic'             , ('!INTERFILE:=', 'INTERFILE', '', '!')),
     ('int'               , ('int := 0', 'int', 0, '')),

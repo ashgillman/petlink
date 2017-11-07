@@ -1,6 +1,17 @@
+# build
+build
+.eggs
+*.egg-info
+
+# python
 .cache
 __pycache__
 *.pyc
 
+# cython
+*.c
+*.so
+
+# other
 .envrc
 .gcroots

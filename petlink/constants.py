@@ -4,8 +4,9 @@
 from collections import OrderedDict
 import numpy as np
 
+# PETLINK
 PL_DTYPE = np.uint32
-TAGS = OrderedDict((
+TAGS = OrderedDict([
     ('delay',    0b0000 << 28),
     ('prompt',   0b0100 << 28),
     ('time',     0b1000 << 28),
@@ -13,4 +14,14 @@ TAGS = OrderedDict((
     ('gantry',   0b1100 << 28),
     ('patient',  0b1110 << 28),
     ('control',  0b1111 << 28),
-    ('__LAST__', 2 ** 32 - 1 ))) # Ignore 1111...1111
+    ('__LAST__', 2 ** 32 - 1 )]) # Ignore 1111...1111
+
+# DICOM
+DCM_N_ZEROS_BEFORE_MAGIC = 128
+DCM_MAGIC = b'\x00' * DCM_N_ZEROS_BEFORE_MAGIC + b'DICM'
+DCM_CSA_HEADER_INFO = (0x0029, 0x1010)
+DCM_CSA_DATA = (0x7fe1, 0x1010)
+DCM_LM_DATA_TAG = (0x7fe1, 0x1010)
+
+# PTD
+PTD_MAX_DCM_SIZE = 1 * 1024 * 1024 # 1 MB

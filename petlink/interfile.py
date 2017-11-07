@@ -13,7 +13,7 @@ from functools import reduce
 import pyparsing as pp
 try:
     import numpy as np
-    from .petlink32 import DTYPE as PL_DTYPE
+    from .constants import PL_DTYPE
 except ImportError as err:
     print("Warning: Can't import NumPy. Interfile data loading is "
           'unsupported.',
@@ -230,6 +230,7 @@ class Interfile(object):
                                dtype=PL_DTYPE)
 
     def get_datetime(self, key):
+        logger = logging.getLogger(__name__)
         # load data and time
         date_v = self.header[key.lower() + ' date']
 
@@ -247,6 +248,7 @@ class Interfile(object):
             tz_str = '+0000'
 
         # parse date and time
+        logger.debug('Parsing %s', ' '.join((date_v.value, time_v.value, tz_str)))
         datetime_ = datetime.datetime.strptime(
             ' '.join((date_v.value, time_v.value, tz_str)),
             ' '.join((date_fmt,     time_fmt,     '%z')))
