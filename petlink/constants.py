@@ -4,6 +4,9 @@
 from collections import OrderedDict
 import numpy as np
 
+KiB = 1024
+MiB = 1024 * 1024
+
 # PETLINK
 PL_DTYPE = np.uint32
 TAGS = OrderedDict([
@@ -20,8 +23,7 @@ TAGS = OrderedDict([
 DCM_N_ZEROS_BEFORE_MAGIC = 128
 DCM_MAGIC = b'\x00' * DCM_N_ZEROS_BEFORE_MAGIC + b'DICM'
 DCM_CSA_HEADER_INFO = (0x0029, 0x1010)
-DCM_CSA_DATA = (0x7fe1, 0x1010)
-DCM_LM_DATA_TAG = (0x7fe1, 0x1010)
+DCM_CSA_DATA        = (0x7fe1, 0x1010)
 
 # PTD
-PTD_MAX_DCM_SIZE = 1 * 1024 * 1024 # 1 MB
+PTD_MAX_DCM_SIZE = 1 * MiB
