@@ -12,6 +12,7 @@ from petlink import interfile, constants
 from petlink.helpers import dicomhelper
 
 
+# TODO: inherit from InterfileCSA
 class ListMode:
     """List mode functionality.
 
@@ -87,7 +88,8 @@ class ListMode:
             self.dcm = dicom.read_file(dcm)
 
         elif dcm is not None:
-            raise ValueError("Can't parse DICOM input.")
+            raise ValueError(
+                "Can't parse DICOM input: %s. Does file exist?" % dcm)
 
         else:
             self.dcm = None
@@ -179,7 +181,7 @@ class ListMode:
                 force_type or filename))
 
     def to_ptd(self, filename):
-        ptd.write_ptd(self, filename)
+        ptd.write_ptd(self.data, self.dcm, filename)
 
     #
     # Functionality
