@@ -289,6 +289,19 @@ class _TimeIndexer:
         assert isinstance(slice_, slice), \
             'ListMode.tloc only supports slicing.'
         assert slice_.step is None, 'Step slicing of ListMode not supported.'
+
+        start = slice_.start
+        if start is None:
+            start = 0
+        if start < 0:
+            start = self.owner.duration - start
+
+        stop = slice_.stop
+        if stop is None:
+            stop = self.owner.duration
+        if stop < 0:
+            stop = self.owner.duration - stop
+
         return self.owner._slice(
-            self.owner.get_index_at_time(slice_.start or 0),
-            self.owner.get_index_at_time(slice_.stop or self.owner.duration))
+            self.owner.get_index_at_time(start),
+            self.owner.get_index_at_time(stop)+1)

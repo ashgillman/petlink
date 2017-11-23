@@ -35,13 +35,21 @@ def test_ListMode_get_properties():
     assert lm.duration > 0
 
 
-@pytest.mark.skip('Not currently consistent')
+# @pytest.mark.skip('Not currently consistent')
 def test_ListMode_time_indexing():
     lm = ListMode.from_file(hoffrock_ptd)
     one_sec_lm = lm.tloc[5000:6000]
 
     assert one_sec_lm.duration == 1000
     assert one_sec_lm.get_time_at_index(0) == 5000
+
+    first_sec_lm = lm.tloc[:1000]
+    assert first_sec_lm.duration == 1000
+    assert first_sec_lm.get_time_at_index(0) == 0
+
+    last_sec_lm = lm.tloc[-1000:]
+    assert last_sec_lm.duration == 1000
+    assert last_sec_lm.get_time_at_index(0) == lm.duration - 1000
 
 
 @pytest.mark.skip('Not currently consistent')
