@@ -118,10 +118,10 @@ class ListMode:
         elif ifl is not None:
             raise ValueError("Can't parse Interfile input.")
 
-        elif self.dcm and constants.DCM_CSA_HEADER_INFO in self.dcm:
+        elif self.dcm and constants.DCM_CSA_DATA_INFO in self.dcm:
             logger.debug('Extracting interfile header from DICOM')
             ifl_source = dicomhelper.decode_ob_header(
-                self.dcm[constants.DCM_CSA_HEADER_INFO].value)
+                self.dcm[constants.DCM_CSA_DATA_INFO].value)
             self.ifl = interfile.Interfile(source=ifl_source)
 
         else:
@@ -241,7 +241,7 @@ class ListMode:
 
             if self.ifl:
                 # stuff new interfile header into DICOM
-                new_dcm[constants.DCM_CSA_HEADER_INFO].value = \
+                new_dcm[constants.DCM_CSA_DATA_INFO].value = \
                     dicomhelper.encode_ob_header(str(new_ifl))
 
         return ListMode(data=new_data, dcm=new_dcm, ifl=new_ifl,
