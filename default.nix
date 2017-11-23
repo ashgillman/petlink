@@ -1,6 +1,6 @@
 { pkgs ? import <mypkgs> {}
 , stdenv ? pkgs.stdenv
-, pythonPackages ? pkgs.python34Packages
+, pythonPackages ? pkgs.python35Packages
 }:
 
 let
