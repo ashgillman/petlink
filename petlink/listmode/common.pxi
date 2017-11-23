@@ -16,23 +16,24 @@ ctypedef np.double_t   CSurrogateValue
 ctypedef bint          bool
 ctypedef unsigned long CListIdx
 
-NpPacket         = np.uint32
-NpSinoIdxElem    = np.uint16
-NpTimeIdx        = np.uint32
-NpCount          = np.int32 # signed, since delays may make negative
-NpSurrogateValue = np.double
-
 cdef struct Time_Index:
     CTimeIdx time
     CListIdx idx
 
+NpPacket         = np.uint32 # a PETLINK packet
+NpSinoIdxElem    = np.uint16 # a sinogram index
+NpTimeIdx        = np.uint32 # a time index
+NpCount          = np.int32  # sinogram val. Signed, since delays may make -'ve
+NpSurrogateValue = np.double
 
-# Constants
+
+# Use max values as invalid flag
 Packet_invalid      = np.iinfo(NpPacket).max
 SinoIdxElem_invalid = np.iinfo(NpSinoIdxElem).max
 TimeIdx_invalid     = np.iinfo(NpTimeIdx).max
 Count_invalid       = np.iinfo(NpCount).max
 
+# Masks, taken from PETLINK spec
 cdef CPacket EVENT_MASK    = 0b0000U << 28
 cdef CPacket EVENT_UNMASK  = ~<CPacket>(0b1100U << 28)
 cdef CPacket TAG_MASK      = 0b1000U << 28
@@ -82,7 +83,6 @@ cdef inline Time_Index find_next_time(np.ndarray[CPacket, ndim=1] lm,
     retval.time = TimeIdx_invalid
     retval.idx = lm_size
 
-    idx += 1 # skip current
     while idx < lm_size:
         packet = lm[idx]
         if is_time(packet):
@@ -104,10 +104,10 @@ cdef inline Time_Index find_prev_time(np.ndarray[CPacket, ndim=1] lm,
     retval.idx = 0
 
     while idx > 0:
-        packet = lm[idx-1]
+        packet = lm[idx]
         if is_time(packet):
             retval.time = packet & TAG_UNMASK
-            retval.idx = idx-1
+            retval.idx = idx
             return retval
         idx -= 1
     return retval
@@ -117,16 +117,13 @@ cdef inline Time_Index find_prev_time(np.ndarray[CPacket, ndim=1] lm,
 @cython.wraparound(False)
 cpdef inline CTimeIdx duration(np.ndarray[CPacket, ndim=1] lm):
     """Calcultate the duration, in ms, of the acquisition."""
-    cdef CTimeIdx packet
-    cdef CListIdx idx = lm.size
-    return find_prev_time(lm, lm.size, lm.size).time
+    return find_prev_time(lm, lm.size, lm.size-1).time
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef inline CTimeIdx begin(np.ndarray[CPacket, ndim=1] lm):
     """Calcultate the begin time, in ms, of the acquisition."""
-    cdef CTimeIdx packet
-    return find_next_time(lm, lm.size, -1).time
+    return find_next_time(lm, lm.size, 0).time
 
 
 # The following functions get the bin address (element, angle,
@@ -155,7 +152,6 @@ def extract_one(event, shape):
             get_s(E, A, S, T, event), get_t(E, A, S, T, event))
 
 
-@cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef inline void bin_event(
@@ -182,7 +178,6 @@ cdef inline void bin_event(
         sino[e, a, s, t] += 1
 
 
-@cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef inline void bin_event_no_tof(
@@ -221,7 +216,7 @@ cdef inline CSurrogateValue decay_correct(CSurrogateValue uncorrected,
         time: Time since beginning of scan (or injection) in milliseconds.
         half_life: Half life of the radioisotope in seconds.
     """
-    return uncorrected * exp2(time / 1000 / half_life)
+    return uncorrected * exp2(<float>time / 1000. / half_life)
 
 
 # cdef inline CListIdx _find_time_index(np.ndarray[CPacket, ndim=1] lm,
@@ -283,7 +278,7 @@ cdef CListIdx _find_time_index(np.ndarray[CPacket, ndim=1] lm,
 
         # print('<', upper.time, '@', upper.idx)
         # print('o', time, '<>', current.idx)
-        current = find_next_time(lm, lm_size, current.idx)
+        current = find_next_time(lm, lm_size, current.idx+1)
         # print('?', current.time, '@', current.idx, '=', time)
         # print('>', lower.time, '@', lower.idx)
 
@@ -296,7 +291,7 @@ cdef CListIdx _find_time_index(np.ndarray[CPacket, ndim=1] lm,
             current = find_prev_time(lm, lm_size, upper.idx-1)
         elif current.time <= lower.time:
             print('bump next')
-            current = find_next_time(lm, lm_size, lower.idx)
+            current = find_next_time(lm, lm_size, lower.idx+1)
 
         # check if we're done!
         if current.time == time:
