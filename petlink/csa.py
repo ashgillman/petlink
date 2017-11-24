@@ -1,9 +1,14 @@
-"""Convenient accessors for CSA DICOM fields."""
+"""Convenient accessors for CSA DICOM fields.
+
+Authored by Ashley Gillman. CSA header reading adapted from Parnesh Raniga.
+"""
 
 
 import logging
 import os
 import struct
+import io
+import collections
 import numpy as np
 import dicom
 
@@ -50,17 +55,6 @@ class InterfileCSA(object):
         else:
             raise ValueError("Can't parse DICOM input.")
 
-        # Parse or extract ifl as an Interfile
-
-        if constants.DCM_CSA_DATA_INFO in self.dcm:
-            logger.debug('Extracting interfile header from DICOM')
-            ifl_source = dicomhelper.decode_ob_header(
-                self.dcm[constants.DCM_CSA_DATA_INFO].value)
-            self.ifl = interfile.Interfile(source=ifl_source)
-
-        else:
-            raise ValueError("Can't extract interfile header from DICOM")
-
         # Save data, or check dcm for data
 
         if isinstance(data, str) and os.path.exists(data):
@@ -74,6 +68,8 @@ class InterfileCSA(object):
             # load data from dcm
             self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
                                        dtype=self.ifl.dtype)
+
+    # IO
 
     @staticmethod
     def from_ptd(ptd_file):
@@ -102,6 +98,23 @@ class InterfileCSA(object):
 
     def to_ptd(self, filename):
         ptd.write_ptd(self, filename)
+
+    # Interfile
+
+    @property
+    def ifl(self):
+        """read Siemens CSA header as interfile."""
+        if not hasattr(self, '_ifl'):
+            # Parse or extract ifl as an Interfile
+            if constants.DCM_CSA_DATA_INFO in self.dcm:
+                ifl_source = dicomhelper.decode_ob_header(
+                    self.dcm[constants.DCM_CSA_DATA_INFO].value)
+                self._ifl = interfile.Interfile(source=ifl_source)
+
+            else:
+                raise ValueError("No CSA header to find interfile in.")
+
+        return self._ifl
 
     def to_interfile(self, basename):
         img_type = self.dcm.ImageType[-1]
@@ -138,31 +151,44 @@ class InterfileCSA(object):
         """Read the Siemens CSA Header from the DICOM as a dict."""
         # cache
         if not hasattr(self, '_csa_header'):
-            # TODO: check (0029,0010) is 'SIEMENS CSA HEADER'
-            self._csa_header = self._read_csa_header(
-                self.dcm[constants.DCM_CSA_DATA_INFO].value)
+            # TODO: check (0029,0010) is 'SIEMENS CSA HEADER'?
+            csa_raw = io.BytesIO(self.dcm[constants.DCM_CSA_DATA_INFO].value)
+            self._csa_header = self._read_csa_header(csa_raw)
 
         return self._csa_header
 
-
     def _read_csa_header(self, csa_raw):
-        """Read SIEMENS CSA HEADER from raw bytes in DICOM, return a dict."""
-        tag = dict(
-            name    = struct.unpack("<64s", csa_raw.read(64))[0].split(chr(0))[0],
-            vm      = struct.unpack("<i",   csa_raw.read(4))[0],
-            vr      = struct.unpack("<4s",  csa_raw.read(4))[0],
-            syngodt = struct.unpack("<i",   csa_raw.read(4))[0],
-            nitems  = struct.unpack("<i",   csa_raw.read(4))[0],
-            etag    = struct.unpack("<i",   csa_raw.read(4))[0],
-            items   = [],
-        )
-        for item in range(0,tag['nitems']):
-            tag['items'].append(self._read_csa_header_item(csa_raw))
+        id, _, ntags, _ = struct.unpack('<4s4sII', csa_raw.read(4+4+4+4))
+        assert id == b'SV10', 'Only know how to unpack SV10.'
 
-    def _read_csa_header_item(self, csa_raw):
+        header = collections.OrderedDict()
+        for _ in range(ntags):
+            tag = self._read_csa_tag(csa_raw)
+            header[tag['name']] = tag
+
+        return header
+
+    def _read_csa_tag(self, csa_raw):
+        """Read SIEMENS CSA HEADER from raw bytes in DICOM, return a dict."""
+        # unpack
+        raw_name, vm, raw_vr, syngodt, nitems, etag = struct.unpack(
+            '<64si4siii', csa_raw.read(64+4+4+4+4+4))
+
+        # decode strings
+        name = raw_name.split(b'\x00')[0].decode('ascii')
+        vr = raw_vr.strip(b'\x00').decode('ascii')
+
+        # form tags
+        tag = dict(name=name, vm=vm, vr=vr, syngodt=syngodt, nitems=nitems,
+                   etag=etag, items=[])
+        for item in range(tag['nitems']):
+            tag['items'].append(self._read_csa_tag_item(csa_raw))
+
+        return tag
+
+    def _read_csa_tag_item(self, csa_raw):
         """Read an individual item from a CSA Header."""
-        chars = csa_raw.read(16)
-        len_bound = struct.unpack("<4i",chars)
+        len_bound = struct.unpack('<'+4*'i', csa_raw.read(16))
         len_item = len_bound[1]
 
         # short circuit
@@ -178,23 +204,23 @@ class InterfileCSA(object):
         # read out value
         if len_item > end - cur:
             ## read in however many bytes we have
-            val = struct.unpack('<'+str(end-cur)+'s', csa_raw.read(len_items))
+            val = struct.unpack(
+                '<'+str(end-cur)+'s', csa_raw.read(len_item))[0]
         else:
-            val = struct.unpack('<'+str(len_item)+'s', csa_raw.read(len_item))
+            val = struct.unpack(
+                '<'+str(len_item)+'s', csa_raw.read(len_item))[0]
 
         # ensure a valid position
         cur = csa_raw.tell()
         if cur%4 != 0:
             csa_raw.seek(4-(cur%4), os.SEEK_CUR)
 
-        return val[0]
+        return val.strip(b'\x00').decode('ascii')
 
+    # DICOM helpers
 
-# class CSAHeader:
-#     name = None
-#     vm = None
-#     vr = None
-#     sygodt = None
-#     nitems = None
-#     etag = None
-#     items = []
+    def get_datetime(self, which_time='acquisition'):
+        """Return a datatime object of a given DICOM time. E.g., Acquisition
+        for Acquition Date and Acquisition Time.
+        """
+        return dicomhelper.get_datetime(self.dcm, which_time.capitalize())
