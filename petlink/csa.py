@@ -21,9 +21,10 @@ class InterfileCSA(object):
     files.
 
     Attributes:
-        ifl: Interfile header, an Interfile object.
-        data: Interfile data, a Numpy ndarray.
         dcm: DICOM header, a pydicom Dataset object.
+        ifl: Interfile header, an Interfile object (only if .dcm+.bf or .ptd).
+        data: Interfile data, a Numpy ndarray (only if .dcm+.bf or .ptd).
+        csa_header: CSA header ad a dict (only if .IMA).
 
     Supported are:
       - Image files with Siemens CSA headers that need to be read (.IMA).
@@ -152,12 +153,13 @@ class InterfileCSA(object):
         # cache
         if not hasattr(self, '_csa_header'):
             # TODO: check (0029,0010) is 'SIEMENS CSA HEADER'?
-            csa_raw = io.BytesIO(self.dcm[constants.DCM_CSA_DATA_INFO].value)
-            self._csa_header = self._read_csa_header(csa_raw)
+            header_data = self.dcm[constants.DCM_CSA_DATA_INFO].value
+            self._csa_header = self._read_csa_header(header_data)
 
         return self._csa_header
 
-    def _read_csa_header(self, csa_raw):
+    def _read_csa_header(self, dcm_value):
+        csa_raw = io.BytesIO(dcm_value)
         id, _, ntags, _ = struct.unpack('<4s4sII', csa_raw.read(4+4+4+4))
         assert id == b'SV10', 'Only know how to unpack SV10.'
 
