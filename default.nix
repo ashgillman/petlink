@@ -27,4 +27,5 @@ in
 
     buildInputs = python_build_dependencies;
     propagatedBuildInputs = python_dependencies;
+    doCheck = false; # don't have test data
   }
