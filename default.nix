@@ -1,6 +1,6 @@
 { pkgs ? import <mypkgs> {}
 , stdenv ? pkgs.stdenv
-, pythonPackages ? pkgs.python34Packages
+, pythonPackages ? pkgs.python3Packages
 }:
 
 let
@@ -14,6 +14,7 @@ let
     with pythonPackages;
     [
       python     # The Interpreter itself
+      cython     # Wrapping cpp in Python
       numpy      # MATLAB-like vectorised computation
       pydicom    # DICOM reading for .ptd files
       pyparsing  # Parsing of text
