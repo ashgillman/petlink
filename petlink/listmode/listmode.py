@@ -191,8 +191,11 @@ class ListMode:
 
         The first time tag is assigned t=0.
         """
-        return (unlisting.duration(self.data[:index])
-                - unlisting.begin(self.data))
+        duration_raw = unlisting.duration(self.data[:index])
+        if duration_raw == 0:
+            # special case, no previous time tags
+            return 0
+        return (duration_raw - unlisting.begin(self.data))
 
     def get_index_at_time(self, time):
         """Get the data index for a time tag in ms since the start of the

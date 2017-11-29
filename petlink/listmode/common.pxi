@@ -119,7 +119,10 @@ cpdef inline CTimeIdx duration(np.ndarray[CPacket, ndim=1] lm):
     """Calcultate the duration, in ms, of the acquisition."""
     cdef CTimeIdx packet
     cdef CListIdx idx = lm.size
-    return find_prev_time(lm, lm.size, lm.size).time
+    cdef CTimeIdx dur = find_prev_time(lm, lm.size, lm.size).time
+    if dur == TimeIdx_invalid:
+        dur = 0
+    return dur
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
