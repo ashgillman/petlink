@@ -200,13 +200,15 @@ class ListMode:
         if duration_raw == 0:
             # special case, no previous time tags
             return 0
-        print(duration_raw, unlisting.begin(self.data))
         return (duration_raw - unlisting.begin(self.data))
 
     def get_index_at_time(self, time):
         """Get the data index for a time tag in ms since the start of the
         scan.
         """
+        if time < 0:
+            time = self.duration + time
+        assert 0 <= time <= self.duration, 'Chosen time out of range.'
         return unlisting.find_time_index(
             self.data, unlisting.begin(self.data) + time)
 
