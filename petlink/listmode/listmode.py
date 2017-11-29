@@ -191,7 +191,7 @@ class ListMode:
 
         The first time tag is assigned t=0.
         """
-        duration_raw = unlisting.duration(self.data[:index])
+        duration_raw = unlisting.duration(self.data[:index+1])
         if duration_raw == 0:
             # special case, no previous time tags
             return 0
