@@ -223,7 +223,7 @@ class Interfile(object):
         if memmap:
             return np.memmap(
                 data_file, dtype=PL_DTYPE, mode='r',
-                offset=self.header.get(self.offset_key, 0).value)
+                offset=self.header.get(self.offset_key, 0))
         else:
             return np.fromfile(data_file,
                                #offset = self.header[self.offset_key],

@@ -9,6 +9,9 @@ import pyparsing as pp
 from ..interfile import Interfile, Value, InvalidInterfileError, PL_DTYPE
 
 
+HERE = os.path.dirname(__file__)
+
+
 class IsNone():
     """Evaluates as equal to None without actually being None.
 
@@ -23,49 +26,50 @@ class IsNone():
 
 # ('name' , ('line', 'expected_key', 'expected_value', 'expected_key_type'))
 test_lines = (
-    ('magic'             , ('!INTERFILE:=', 'INTERFILE', '', '!')),
-    ('int'               , ('int := 0', 'int', 0, '')),
-    ('float'             , ('float := 0.0', 'float', 0., '')),
-    ('scifloat'          , ('scifloat := 5.1e2', 'scifloat', 510., '')),
-    ('scifloat2'         , ('scifloat2 := 3.14e+007', 'scifloat2', 3.14e7, '')),
-    ('no_value'          , ('no value :=', 'no value', '', '')),
-    ('none'              , ('none := <NONE>', 'none', IsNone(), '')),
-    ('string'            , ('string := Hello, World!',
+    ('magic',              ('!INTERFILE:=', 'INTERFILE', '', '!')),
+    ('int',                ('int := 0', 'int', 0, '')),
+    ('float',              ('float := 0.0', 'float', 0., '')),
+    ('scifloat',           ('scifloat := 5.1e2', 'scifloat', 510., '')),
+    ('scifloat2',          ('scifloat2 := 3.14e+007',
+                            'scifloat2', 3.14e7, '')),
+    ('no_value',           ('no value :=', 'no value', '', '')),
+    ('none',               ('none := <NONE>', 'none', IsNone(), '')),
+    ('string',             ('string := Hello, World!',
                             'string', 'Hello, World!', '')),
-    ('list'              , ('list := { 1, 2, 3 }',
+    ('list',               ('list := { 1, 2, 3 }',
                             'list', [1, 2, 3], '')),
-    ('list_unspaced'     , ('list unspaced := {1,2,3}',
+    ('list_unspaced',      ('list unspaced := {1,2,3}',
                             'list unspaced', [1, 2, 3], '')),
-    ('path'              , ('path := \\\\path\\to\\file.file',
+    ('path',               ('path := \\\\path\\to\\file.file',
                             'path', os.path.join(
                                 os.path.sep, 'path',
                                 'to', 'file.file'),
-                            ''))            ,
-    ('date (yyyy:mm:dd)' , ('date (yyyy:mm:dd) := 2016:11:15',
+                            '')),
+    ('date (yyyy:mm:dd)',  ('date (yyyy:mm:dd) := 2016:11:15',
                             'date', '2016:11:15', '')),
-    ('blank'             , ('', None, None, '')),
-    ('comment'           , ('; comment', None, None, '')),
-    ('empty_comment'     , (';', None, None, '')),
-    ('exclaim'           , ('!exclaim :=',
-                            'exclaim'       , '', '!')),
-    ('percent'           , ('%percent :=',
-                            'percent'       , '', '%')),
-    ('spaced'            , ('key 1 := 1', 'key 1', 1, '')),
-    ('spaced_left'       , ('key 2 :=2', 'key 2', 2, '')),
-    ('spaced_right'      , ('key 3:= 3', 'key 3', 3, '')),
-    ('unspaced'          , ('key 4:=4', 'key 4', 4, '')),
-    ('colons:in:key'     , ('colons:in:key:=colons:in:value',
-                            'colons:in:key' , 'colons:in:value', '')),
-    ('ignore case'       , ('Ignore Case := yes', 'ignore case', 'yes', '')),
-    ('units'             , ('units (unit):=value', 'units', 'value', '')),
-    ('vector'            , ('vector [1] := 0', 'vector', [0], '')),
-    ('vector2'           , ('vector2 [1] := 0\n'
+    ('blank',              ('', None, None, '')),
+    ('comment',            ('; comment', None, None, '')),
+    ('empty_comment',      (';', None, None, '')),
+    ('exclaim',            ('!exclaim :=',
+                            'exclaim', '', '!')),
+    ('percent',            ('%percent :=',
+                            'percent', '', '%')),
+    ('spaced',             ('key 1 := 1', 'key 1', 1, '')),
+    ('spaced_left',        ('key 2 :=2', 'key 2', 2, '')),
+    ('spaced_right',       ('key 3:= 3', 'key 3', 3, '')),
+    ('unspaced',           ('key 4:=4', 'key 4', 4, '')),
+    ('colons:in:key',      ('colons:in:key:=colons:in:value',
+                            'colons:in:key', 'colons:in:value', '')),
+    ('ignore case',        ('Ignore Case := yes', 'ignore case', 'yes', '')),
+    ('units',              ('units (unit):=value', 'units', 'value', '')),
+    ('vector',             ('vector [1] := 0', 'vector', [0], '')),
+    ('vector2',            ('vector2 [1] := 0\n'
                             'vector2 [2] := 1',
                             'vector2', [0, 1], '')),
-    ('vector unordered'  , ('vector unordered [2] := 0\n'
+    ('vector unordered',   ('vector unordered [2] := 0\n'
                             'vector unordered [1] := 1',
                             'vector unordered', [1, 0], '')),
-    ('end magic'         , ('!END OF INTERFILE:=',
+    ('end magic',          ('!END OF INTERFILE:=',
                             'END OF INTERFILE', '', '!')),
 )
 
@@ -252,26 +256,29 @@ def test_Interfile_dont_read_data_relative_without_sourcefile(tmpdir):
     assert 'source file' in str(e)
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 def test_Interfile_read_data_memmap(tmpdir):
-    header_f = tmpdir.join('interfile.h')
-    data_f = tmpdir.join('interfile.hx')
+    umap_hv = os.path.join(HERE, 'data', 'hoffrock', 'umap.hv')
 
-    header_content = '\n'.join(t[1][0] for t in test_lines[:-1])
-    header_content += '\nname of data file := \\'
-    header_content += str(data_f).replace('/', '\\')
-    header_content += '\n'
+    # header_f = tmpdir.join('interfile.h')
+    # data_f = tmpdir.join('interfile.hx')
 
-    print(header_content)
+    # header_content = '\n'.join(t[1][0] for t in test_lines[:-1])
+    # header_content += '\nname of data file := \\'
+    # header_content += str(data_f).replace('/', '\\')
+    # header_content += '\n'
 
-    data_content = np.arange(10, dtype=PL_DTYPE)
+    # print(header_content)
 
-    header_f.write(header_content)
-    data_content.tofile(str(data_f))
+    # data_content = np.arange(10, dtype=PL_DTYPE)
 
-    parsed = Interfile(sourcefile=str(header_f))
+    # header_f.write(header_content)
+    # data_content.tofile(str(data_f))
+
+    parsed = Interfile(sourcefile=str(umap_hv))
     parsed_data = parsed.get_data(memmap=True)
-    assert (parsed_data == data_content).all()
+    # assert (parsed_data == data_content).all()
+    assert parsed_data.size > 0
     assert isinstance(parsed_data, np.memmap)
 
 
