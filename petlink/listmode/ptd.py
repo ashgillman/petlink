@@ -29,10 +29,15 @@ def read_data(filename):
     """Read the raw data component of the .ptd file."""
     length = _get_start_of_dicom(filename)
     event_length = length // PL_DTYPE().itemsize
+
     # map in everything up to DICM magic
-    return np.memmap(
-        filename, mode='r', shape=(event_length, ),
-        dtype=PL_DTYPE)
+    try:
+        return np.memmap(
+            filename, mode='r', shape=(event_length, ),
+            dtype=PL_DTYPE)
+    except OverflowError as err:
+        raise RuntimeError(
+            "Can't load {} as .ptd, is it valid?".format(filename)) from err
 
 
 def read_dcm(filename):
@@ -45,6 +50,7 @@ def read_dcm(filename):
         fp.seek(start)
         return dicom.filereader.read_partial(fp, defer_size=10*1024,
                                              stop_when=_at_lm_data)
+
 
 def _at_lm_data(tag, VR, length):
     """Stop when list mode data is reached. For use in
