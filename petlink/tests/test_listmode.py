@@ -40,6 +40,14 @@ def test_ListMode_time_indexing():
     one_sec_lm = lm.tloc[5000:6000]
     assert one_sec_lm.duration == 1000
 
+    first_sec_lm = lm.tloc[:1000]
+    assert first_sec_lm.duration == 1000
+    assert first_sec_lm.get_time_at_index(0) == 0
+
+    last_sec_lm = lm.tloc[-1000:]
+    assert last_sec_lm.duration == 1000
+    assert last_sec_lm.get_time_at_index(0) == 0
+
 
 def test_ListMode_time_index_consistency():
     lm = ListMode.from_file(hoffrock_ptd)

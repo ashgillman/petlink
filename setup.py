@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-from glob import glob
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
@@ -33,7 +32,7 @@ setup(
     license='nil',
     packages=find_packages(exclude=['tests']),
     ext_modules=cythonize([unlisting]),
-    setup_requires=['pytest-runner'],
+    setup_requires=['pytest-runner', 'cython'],
     install_requires=['numpy', 'pyparsing', 'pydicom'],
     tests_require=['pytest'],
 )

@@ -193,6 +193,9 @@ class Interfile(object):
             logger.warn('Interfile has no source, so header is None.')
             logger.warn(self.source)
 
+    def __copy__(self):
+        return Interfile(str(self))
+
     def get_data(self, memmap=False):
         """Retrieve the image data. Optionally, may be returned as a
         numpy memmap rather than an array to avoid loading into
