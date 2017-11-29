@@ -191,10 +191,14 @@ class ListMode:
 
         The first time tag is assigned t=0.
         """
-        duration_raw = unlisting.duration(self.data[:index+1])
+        if index == -1:
+            duration_raw = unlisting.duration(self.data)
+        else:
+            duration_raw = unlisting.duration(self.data[:index+1])
         if duration_raw == 0:
             # special case, no previous time tags
             return 0
+        print(duration_raw, unlisting.begin(self.data))
         return (duration_raw - unlisting.begin(self.data))
 
     def get_index_at_time(self, time):
@@ -292,6 +296,13 @@ class _TimeIndexer:
         assert isinstance(slice_, slice), \
             'ListMode.tloc only supports slicing.'
         assert slice_.step is None, 'Step slicing of ListMode not supported.'
-        return self.owner._slice(
-            self.owner.get_index_at_time(slice_.start or 0),
-            self.owner.get_index_at_time(slice_.stop or self.owner.duration))
+
+        # get start and stop in indices rather than times
+        start_idx = self.owner.get_index_at_time(slice_.start or 0)
+        if slice_.stop is None:
+            stop_idx = self.owner.get_index_at_time(self.owner.duration)
+        else:
+            # add 1 so that we keep the final time tag
+            stop_idx = self.owner.get_index_at_time(slice_.stop) + 1
+
+        return self.owner._slice(start_idx, stop_idx)
