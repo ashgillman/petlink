@@ -13,7 +13,6 @@ from functools import reduce
 import pyparsing as pp
 try:
     import numpy as np
-    from .constants import PL_DTYPE
 except ImportError as err:
     print("Warning: Can't import NumPy. Interfile data loading is "
           'unsupported.',
@@ -93,11 +92,12 @@ def _from_ptd(filename):
 
     source = dcm[CSA_DATA_INFO].value.decode().rstrip('\0')
     interfile = Interfile(source)
+    dtype = interfile.get_datatype()
     try:
         data = np.memmap(
-            filename, mode='r', shape=(data_length / PL_DTYPE().itemsize, ),
-            dtype=PL_DTYPE,
-            offset=interfile.header.get(Interfile.offset_key, 0).value)
+            filename, mode='r', shape=(data_length / dtype.itemsize, ),
+            dtype=dtype,
+            offset=interfile.header.get(Interfile.OFFSET_KEY, 0).value)
     except TypeError:
         # happens, e.g., with norm .ptd's
         data = None
@@ -146,8 +146,15 @@ class Interfile(object):
     INTERFILE_INDEX_START = '['
     INTERFILE_INDEX_END = ']'
 
-    data_file_key = 'name of data file'
-    offset_key = 'data offset in bytes'
+    DATA_FILE_KEY = 'name of data file'
+    OFFSET_KEY = 'data offset in bytes'
+
+    DATA_FORMAT_KEY = 'number format'
+    DATA_FORMAT_DEFAULT = 'UNSIGNED INTEGER'
+    DATA_SIZE_KEY = 'number of bytes per pixel'
+    DATA_SIZE_DEFAULT = 4
+    DATA_ORDER_KEY = 'imagedata byte order'
+    DATA_ORDER_DEFAULT = 'LITTLEENDIAN'
 
     def __init__(self, source=None, sourcefile=None, header=None, data=None,
                  dcm=None):
@@ -196,13 +203,39 @@ class Interfile(object):
     def __copy__(self):
         return Interfile(str(self))
 
+    def get_datatype(self):
+        if (self._data is not None
+                and self.DATA_FORMAT_KEY not in self
+                and self.DATA_SIZE_KEY not in self
+                and self.DATA_ORDER_KEY not in self):
+            # we have a added data but no type information at all
+            return self._data.dtype
+
+        else:
+            format_ = self.get(self.DATA_FORMAT_KEY, self.DATA_FORMAT_DEFAULT)
+            size = self.get(self.DATA_SIZE_KEY, self.DATA_SIZE_DEFAULT)
+            order = self.get(self.DATA_ORDER_KEY, self.DATA_ORDER_DEFAULT)
+
+            format_ = {
+                'UNSIGNED INTEGER': 'u',
+                'SIGNED INTEGER': 'i',
+                'INTEGER': 'i',
+                'FLOAT': 'f',
+            }[format_.upper()]
+            order = {
+                'LITTLEENDIAN': '<',
+                'BIGENDIAN': '>',
+            }[order.upper()]
+
+            return np.dtype(order + format_ + str(size))
+
     def get_data(self, memmap=False):
         """Retrieve the image data. Optionally, may be returned as a
         numpy memmap rather than an array to avoid loading into
         memory.
         """
-        if self._data:
-            return data
+        if self._data is not None:
+            return self._data
 
         # Don't bother if we never imported NumPy
         try:
@@ -213,7 +246,7 @@ class Interfile(object):
             ) from err
 
         # check whether the file is absolute or relative
-        data_file = self[self.data_file_key]
+        data_file = self[self.DATA_FILE_KEY]
         if not os.path.isabs(data_file):
             try:
                 data_file = os.path.join(
@@ -222,15 +255,16 @@ class Interfile(object):
                 raise FileNotFoundError(
                     'Relative filenames are only supported when '
                     'source file is known.') from err
+        dtype = self.get_datatype()
 
         if memmap:
             return np.memmap(
-                data_file, dtype=PL_DTYPE, mode='r',
-                offset=self.header.get(self.offset_key, 0))
+                data_file, dtype=dtype, mode='r',
+                offset=self.header.get(self.OFFSET_KEY, 0))
         else:
             return np.fromfile(data_file,
-                               #offset = self.header[self.offset_key],
-                               dtype=PL_DTYPE)
+                               #offset = self.header[self.OFFSET_KEY],
+                               dtype=dtype)
 
     def get_datetime(self, key):
         logger = logging.getLogger(__name__)
@@ -304,6 +338,14 @@ class Interfile(object):
         caseless."""
         return self.header[key.lower()].value
 
+    def get(self, key, default=None):
+        """Indexing with a default."""
+        return self[key] if key in self else default
+
+    def __contains__(self, key):
+        """Shortcut for the wrapped header dict."""
+        return key in self.header
+
     def __setitem__(self, key, value):
         """Set an item of the header attribute.
 
@@ -343,8 +385,40 @@ class Interfile(object):
 
     def to_filename(self, filename):
         """Write interfile to file."""
+        try:
+            data = self.get_data()
+        except KeyError:
+            data = None
+
+        if data is not None:
+            if filename[-3:-1] == '.h':  # *.h*
+                data_file = filename[:-2] + filename[-1:]
+            else:
+                data_file = filename + '.dat'
+
+            dtype = self.get_datatype()
+            data.astype(dtype).tofile(data_file)
+
+            temp_self = Interfile(str(self))
+            temp_self.header['name of data file'] = Value(data_file, '!')
+            temp_self.header[self.DATA_FORMAT_KEY] = Value(
+                {
+                    'i': 'SIGNED INTEGER',
+                    'u': 'UNSIGNED INTEGER',
+                    'f': 'FLOAT',
+                }[dtype.kind])
+            temp_self.header[self.DATA_SIZE_KEY] = Value(dtype.itemsize, '!')
+            temp_self.header[self.DATA_ORDER_KEY] = Value(
+                {
+                    '<': 'LITTLEENDIAN',
+                    '>': 'BIGENDIAN',
+                    '=': sys.byteorder.upper() + 'ENDIAN',
+                }[dtype.byteorder])
+        else:
+            temp_self = self
+
         with open(filename, 'w+') as fp:
-            fp.write(str(self))
+            fp.write(str(temp_self))
 
     def format_line(self, key, value):
         """Format an interfile line."""

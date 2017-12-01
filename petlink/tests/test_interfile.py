@@ -6,7 +6,8 @@ import numpy as np
 import pytest
 import pyparsing as pp
 
-from ..interfile import Interfile, Value, InvalidInterfileError, PL_DTYPE
+from ..interfile import Interfile, Value, InvalidInterfileError
+from ..constants import PL_DTYPE
 
 
 HERE = os.path.dirname(__file__)
@@ -132,13 +133,16 @@ def test_Interfile_no_magic():
 
 
 def test_Interfile_file(tmpdir):
-    content = '\n'.join(t[1][0] for t in test_lines)
+    header = '\n'.join(t[1][0] for t in test_lines)
+    data = np.arange(50)
+    ifl = Interfile(header, data=data)
     f = tmpdir.join('interfile.h')
-    f.write(content)
+    ifl.to_filename(str(f))
     parsed = Interfile(sourcefile=str(f))
-    check_against_test_lines(parsed)
+    for k, v in ifl.header.items():
+        assert parsed.header[k] == v
     assert parsed.sourcefile == f
-    assert parsed.source == content
+    assert np.all(parsed.get_data() == data)
 
 
 def test_Interfile_caseless_lookup():
