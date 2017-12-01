@@ -12,6 +12,9 @@ from petlink import interfile, constants
 from petlink.helpers import dicomhelper
 
 
+HERE = os.path.dirname(__file__)
+
+
 # TODO: inherit from InterfileCSA
 class ListMode:
     """List mode functionality.
@@ -186,6 +189,36 @@ class ListMode:
     #
     # Functionality
     #
+
+    def unlist(self, template=None, keep_tof=False):
+        """Unlist/histogram list mode events into a prompt and delay sinogram.
+
+        If a template for an interfile header is passed (path, string or
+        Interfile), two Interfile objects are returned. If template is None
+        (default), automatically find a template. If template is False, two
+        numpy arrays are returned.
+        """
+        psino, dsino = unlisting.unlist(
+            self.data, self.unlist_shape, tof=keep_tof)
+
+        if template is False:
+            return psino, dsino
+        elif template is None:
+            orig_sys = str(self.ifl['originating system'])
+            template = os.path.join(HERE, 'templates', orig_sys + '_span1.hs')
+
+        if isinstance(template, interfile.Interfile):
+            pass
+        elif isinstance(template, str) and os.path.exists(template):
+            template = interfile.Interfile(sourcefile=template)
+        elif isinstance(template, str):
+            template = interfile.Interfile(source=template)
+        else:
+            raise TypeError('Unexpected type for template')
+
+        psino = interfile.Interfile(source=str(template), data=psino)
+        dsino = interfile.Interfile(source=str(template), data=dsino)
+        return psino, dsino
 
     def get_time_at_index(self, index):
         """Get the time in ms since the start of the scan at a given list
