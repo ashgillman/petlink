@@ -208,6 +208,11 @@ class ListMode:
             span = str(self.ifl['axial compression'])
             template = os.path.join(
                 HERE, 'templates', orig_sys + '_span' + span + '.hs')
+            if not os.path.exists(template):
+                raise RuntimeError(
+                    'No template for scanner {} with span {}.'
+                    "If Interfile isn't required, pass template=False."
+                    .format(orig_sys, span))
 
         if isinstance(template, interfile.Interfile):
             pass
