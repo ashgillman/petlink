@@ -57,3 +57,18 @@ def test_ListMode_time_index_consistency():
 def test_ListMode_time_at_start_is_0():
     lm = ListMode.from_file(hoffrock_ptd)
     assert lm.get_time_at_index(0) == 0
+
+
+def test_ListMode_unlist():
+    lm = ListMode.from_file(hoffrock_ptd)
+    prompt, delay = lm.unlist()
+    assert prompt.data.sum() == lm._make_tag_mask('prompt').sum()
+    assert delay.data.sum() == lm._make_tag_mask('delay').sum()
+
+
+def test_ListMode_extract():
+    lm = ListMode.from_file(hoffrock_ptd)
+    time = lm.extract('time')
+    # check time counts up
+    assert time[0] + 1 == time[1]
+    assert time[1] + 1 == time[2]
