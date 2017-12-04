@@ -31,7 +31,7 @@ except ImportError as err:
     class InvalidDicomError(Exception):
         pass
 
-from petlink import constants
+from petlink import constants, ptd
 
 
 Value = namedtuple('Value', 'value key_type units inline')
@@ -73,30 +73,13 @@ def load_ptd(filename):
 
 
 def _from_ptd(filename):
-    with open(filename, 'rb') as fp:
-        # skip to DICOM header
-        try:
-            fp.seek(
-                mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
-                .find(constants.DCM_MAGIC))
-        except OSError as err:
-            raise InvalidDicomError("Can't find DICOM magic") from err
-
-        data_length = fp.tell()
-
-        # read the remaining file as DICOM
-        dcm = dicom.filereader.read_file(fp)
-
-    # TODO?: dcm[CSA_IMAGE_HEADER_INFO].value
+    dcm = ptd.read_dcm(filename)
 
     source = dcm[constants.DCM_CSA_DATA_INFO].value.decode().rstrip('\0')
     interfile = Interfile(source)
     dtype = interfile.get_datatype()
     try:
-        data = np.memmap(
-            filename, mode='r', shape=(data_length / dtype.itemsize, ),
-            dtype=dtype,
-            offset=interfile.header.get(Interfile.OFFSET_KEY, 0).value)
+        data = ptd.read_data(filename, dtype=dtype)
     except TypeError:
         # happens, e.g., with norm .ptd's
         data = None
