@@ -25,7 +25,9 @@ except ImportError as err:
     print("Warning: Can't import PyDICOM. .ptd data loading is unsupported.",
           file=sys.stderr)
     dicom_err = err
-    class InvalidDicomError(Exception): pass
+
+    class InvalidDicomError(Exception):
+        pass
 
 
 DICOM_N_ZEROS_BEFORE_MAGIC = 128
@@ -34,7 +36,7 @@ PTD_READ_DEFER_SIZE = 10 * 1024
 CSA_DATA_INFO = (0x0029, 0x1010)
 CSA_IMAGE_HEADER_INFO = (0x0029, 0x1110)
 CSA_SERIES_HEADER_INFO = (0x0029, 0x1120)
-MAX_PLAINTEXT_IFL_SIZE = 10 * 1024 * 1024 # 10 MB
+MAX_PLAINTEXT_IFL_SIZE = 10 * 1024 * 1024  # 10 MiB
 
 
 Value = namedtuple('Value', 'value key_type units inline')
@@ -54,6 +56,7 @@ def load_plaintext(filename):
     """Load interfile data, from a plaintext header file."""
     return Interfile(**_from_plaintext(filename))
 
+
 def _from_plaintext(filename):
     """Load interfile creation parameters, from a plaintext header file."""
     try:
@@ -72,6 +75,7 @@ def load_ptd(filename):
     as a DICOM file.
     """
     return Interfile(**_from_ptd(filename))
+
 
 def _from_ptd(filename):
     with open(filename, 'rb') as fp:
@@ -262,9 +266,7 @@ class Interfile(object):
                 data_file, dtype=dtype, mode='r',
                 offset=self.header.get(self.OFFSET_KEY, 0))
         else:
-            return np.fromfile(data_file,
-                               #offset = self.header[self.OFFSET_KEY],
-                               dtype=dtype)
+            return np.fromfile(data_file, dtype=dtype)
 
     def get_datetime(self, key):
         logger = logging.getLogger(__name__)
@@ -285,7 +287,8 @@ class Interfile(object):
             tz_str = '+0000'
 
         # parse date and time
-        logger.debug('Parsing %s', ' '.join((date_v.value, time_v.value, tz_str)))
+        logger.debug(
+            'Parsing %s', ' '.join((date_v.value, time_v.value, tz_str)))
         datetime_ = datetime.datetime.strptime(
             ' '.join((date_v.value, time_v.value, tz_str)),
             ' '.join((date_fmt,     time_fmt,     '%z')))
@@ -460,7 +463,6 @@ class Interfile(object):
                 index_end=self.INTERFILE_INDEX_END)
             for idx, val in enumerate(value.value))
 
-
     @classmethod
     def _parse(cls, source):
         """Parse an interfile source.
@@ -544,9 +546,9 @@ class Interfile(object):
         important_key = pp.Literal('!')
         custom_key = pp.Literal('%')
         units_start = pp.Literal(cls.INTERFILE_UNITS_START).suppress()
-        units_end   = pp.Literal(cls.INTERFILE_UNITS_END).suppress()
+        units_end = pp.Literal(cls.INTERFILE_UNITS_END).suppress()
         index_start = pp.Literal(cls.INTERFILE_INDEX_START).suppress()
-        index_end   = pp.Literal(cls.INTERFILE_INDEX_END).suppress()
+        index_end = pp.Literal(cls.INTERFILE_INDEX_END).suppress()
         chars = ''.join(c for c in pp.printables
                         if c not in (cls.INTERFILE_UNITS_START
                                      + cls.INTERFILE_INDEX_START))
@@ -577,10 +579,9 @@ class Interfile(object):
         keys.
         """
         list_start = pp.Literal(cls.INTERFILE_LIST_START).suppress()
-        list_end   = pp.Literal(cls.INTERFILE_LIST_END).suppress()
-        list_sep   = pp.Literal(',').suppress()
-        path_sep   = pp.Literal(ntpath.sep)
-        endl       = pp.LineEnd().suppress()
+        list_end = pp.Literal(cls.INTERFILE_LIST_END).suppress()
+        path_sep = pp.Literal(ntpath.sep)
+        endl = pp.LineEnd().suppress()
 
         # types
         int_ = pp.Regex(r'[+-]?\d+').setParseAction(lambda t: int(t[0]))
@@ -648,7 +649,8 @@ class Interfile(object):
             pp.ParserElement.DEFAULT_WHITE_CHARS)
 
 
-class InvalidInterfileError(Exception): pass
+class InvalidInterfileError(Exception):
+    pass
 
 
 def parse_interfile_path(tokens):
@@ -673,7 +675,7 @@ def split_ntpath(path):
         path, folder = ntpath.split(path)
 
     if path != '':
-      folders.append(path)
+        folders.append(path)
 
     folders.reverse()
     return folders
@@ -697,6 +699,7 @@ def get_parse_exception_context(error, source):
     try:
         error_message += '   ' + sourcelines[error_line_number + 1]
         error_message += '\n'
-    except IndexError: pass
+    except IndexError:
+        pass
 
     return error_message
