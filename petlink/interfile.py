@@ -11,6 +11,7 @@ from collections import OrderedDict, namedtuple
 import textwrap
 from functools import reduce
 import pyparsing as pp
+
 try:
     import numpy as np
 except ImportError as err:
@@ -18,6 +19,7 @@ except ImportError as err:
           'unsupported.',
           file=sys.stderr)
     np_err = err
+
 try:
     import dicom
     from dicom.errors import InvalidDicomError
@@ -29,14 +31,7 @@ except ImportError as err:
     class InvalidDicomError(Exception):
         pass
 
-
-DICOM_N_ZEROS_BEFORE_MAGIC = 128
-DICOM_MAGIC = b'\x00' * DICOM_N_ZEROS_BEFORE_MAGIC + b'DICM'
-PTD_READ_DEFER_SIZE = 10 * 1024
-CSA_DATA_INFO = (0x0029, 0x1010)
-CSA_IMAGE_HEADER_INFO = (0x0029, 0x1110)
-CSA_SERIES_HEADER_INFO = (0x0029, 0x1120)
-MAX_PLAINTEXT_IFL_SIZE = 10 * 1024 * 1024  # 10 MiB
+from petlink import constants
 
 
 Value = namedtuple('Value', 'value key_type units inline')
@@ -61,7 +56,7 @@ def _from_plaintext(filename):
     """Load interfile creation parameters, from a plaintext header file."""
     try:
         with open(filename, 'rt') as fp:
-            source = fp.read(MAX_PLAINTEXT_IFL_SIZE)
+            source = fp.read(constants.IFL_MAX_HEADER_SIZE)
     except TypeError:
         raise FileNotFoundError(filename)
 
@@ -83,7 +78,7 @@ def _from_ptd(filename):
         try:
             fp.seek(
                 mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
-                .find(DICOM_MAGIC))
+                .find(constants.DCM_MAGIC))
         except OSError as err:
             raise InvalidDicomError("Can't find DICOM magic") from err
 
@@ -94,7 +89,7 @@ def _from_ptd(filename):
 
     # TODO?: dcm[CSA_IMAGE_HEADER_INFO].value
 
-    source = dcm[CSA_DATA_INFO].value.decode().rstrip('\0')
+    source = dcm[constants.DCM_CSA_DATA_INFO].value.decode().rstrip('\0')
     interfile = Interfile(source)
     dtype = interfile.get_datatype()
     try:
