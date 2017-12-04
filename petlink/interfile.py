@@ -109,6 +109,7 @@ class Interfile(object):
     # only need one class level parser, delay initialisation to first instance
     key_value_parser = None
     key_parser = None
+    nonstrict_key_parser = None
     value_parser = None
 
     def __init__(self, source=None, header=None, data=None,
@@ -123,6 +124,8 @@ class Interfile(object):
             self._initialise_key_value_parser()
         if not self.key_parser:
             self._initialise_key_parser()
+        if not self.nonstrict_key_parser:
+            self._initialise_nonstrict_key_parser()
         if not self.value_parser:
             self._initialise_value_parser()
 
@@ -461,11 +464,15 @@ class Interfile(object):
         header = OrderedDict()
         for token in tokens:
             try:
-                key_token = self.key_parser.parseString(token.key)
+                if self.strict:
+                    key_token = self.key_parser.parseString(token.key)
+                else:
+                    key_token = self.nonstrict_key_parser.parseString(
+                        token.key)
                 value_token = self.value_parser.parseString(token.value)
             except pp.ParseException as err:
                 error_message = str(err) + '\n'
-                error_message += token.key + ' : ' + token.value
+                error_message += 'Error on: ' + token.key + ' : ' + token.value
                 raise InvalidInterfileError(error_message) from err
 
             # Special cases
@@ -541,6 +548,23 @@ class Interfile(object):
 
         key_parser = key_type + key + units + index + endl
         cls.key_parser = key_parser
+
+    @classmethod
+    def _initialise_nonstrict_key_parser(cls):
+        """Initialise a class-level parser, `nonstrict_key_parser`, to parse
+        Interfile keys without units, keys, indices.
+        """
+        chars = pp.printables
+        endl = pp.LineEnd().suppress()
+
+        key = (pp.OneOrMore(pp.Word(chars))
+               .setParseAction(' '.join)
+               .addParseAction(pp.downcaseTokens)
+               .addParseAction(lambda t: t[0].strip())
+               .setResultsName('key'))
+
+        nonstrict_key_parser = key + endl
+        cls.nonstrict_key_parser = nonstrict_key_parser
 
     @classmethod
     def _initialise_value_parser(cls):
