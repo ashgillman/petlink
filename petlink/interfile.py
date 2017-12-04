@@ -382,7 +382,7 @@ class Interfile(object):
         with open(filename, 'w+') as fp:
             fp.write(str(temp_self))
 
-    def format_line(self, key, value):
+    def format_line(self, key, value, idx=None):
         """Format an interfile line."""
         unit_str = (
             ' {units_start}{units}{units_end}'.format(
@@ -391,8 +391,12 @@ class Interfile(object):
                 units_end=constants.IFL_UNITS_END)
             if value.units is not None
             else '')
-        key_str = '{key_type}{key}{units}'.format(
-            key_type=value.key_type, key=key, units=unit_str)
+        idx_str = (
+            ' {idx_start}{idx}{idx_end}'.format(
+                idx_start=constants.IFL_INDEX_START, idx=idx,
+                idx_end=constants.IFL_INDEX_END)
+            if idx is not None
+            else '')
 
         # special cases
         if isinstance(value.value, list):
@@ -402,7 +406,7 @@ class Interfile(object):
                     list_start=constants.IFL_LIST_START,
                     list_end=constants.IFL_LIST_END)
             else:
-                return self._format_multiline(key_str, value)
+                return self._format_multiline(key, value)
 
         elif value.value is None:
             value_str = constants.IFL_NONE
@@ -410,16 +414,18 @@ class Interfile(object):
         else:
             value_str = str(value.value)
 
-        return '{key} {sep} {value}'.format(
-            key=key_str, value=value_str, sep=constants.IFL_SEP)
+        return '{key_type}{key}{units}{idx} {sep} {value}'.format(
+            key_type=value.key_type, key=key, units=unit_str, idx=idx_str,
+            value=value_str, sep=constants.IFL_SEP)
 
-    def _format_multiline(self, key_str, value):
+    def _format_multiline(self, key, value):
         """Used by format_line to format non-inline vectors."""
         return '\n'.join(
-            '{key} {index_start}{idx}{index_end} {sep} {value!s}'.format(
-                key=key_str, idx=idx+1, value=val, sep=constants.IFL_SEP,
-                index_start=constants.IFL_INDEX_START,
-                index_end=constants.IFL_INDEX_END)
+            self.format_line(
+                key,
+                Value(value=val, key_type=value.key_type, units=value.units,
+                      inline=True),
+                idx=idx+1)
             for idx, val in enumerate(value.value))
 
     # Parsing
@@ -476,11 +482,11 @@ class Interfile(object):
             # first. We will parse the index out later.
             if 'index' in key_token:
                 # TODO, this should fail since we now parse index as ZeroOrMore
-                indexed = (key_token.index, value_token.value)
+                indexed_value = (key_token.index, value)
                 try:
-                    value = header[key_token.key].value + [indexed]
+                    value = header[key_token.key].value + [indexed_value]
                 except KeyError:
-                    value = [indexed]
+                    value = [indexed_value]
 
             header[key_token.key] = Value(
                 key_type=key_token.key_type, value=value,

@@ -70,6 +70,9 @@ test_lines = (
     ('vector unordered',   ('vector unordered [2] := 0\n'
                             'vector unordered [1] := 1',
                             'vector unordered', [1, 0], '')),
+    ('list in vector',     ('list in vector [1] := 1\n'
+                            'list in vector [2] := { 0, 1 }',
+                            'list in vector', [1, [0, 1]], '')),
     ('end magic',          ('!END OF INTERFILE:=',
                             'END OF INTERFILE', '', '!')),
 )
