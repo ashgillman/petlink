@@ -205,7 +205,9 @@ class ListMode:
             return psino, dsino
         elif template is None:
             orig_sys = str(self.ifl['originating system'])
-            template = os.path.join(HERE, 'templates', orig_sys + '_span1.hs')
+            span = str(self.ifl['axial compression'])
+            template = os.path.join(
+                HERE, 'templates', orig_sys + '_span' + span + '.hs')
 
         if isinstance(template, interfile.Interfile):
             pass
