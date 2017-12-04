@@ -62,11 +62,38 @@ def test_ListMode_time_at_start_is_0():
 def test_ListMode_unlist():
     lm = ListMode.from_file(hoffrock_ptd)
     prompt, delay = lm.unlist()
-    assert prompt.get_data().sum() == lm._make_tag_mask('prompt').sum()
-    assert delay.get_data().sum() == lm._make_tag_mask('delay').sum()
-    print(prompt.get_data().shape)
-    assert prompt.get_data().shape == delay.get_data().shape
-    assert prompt.get_data().ndim == 3
+    psino, dsino = prompt.get_data(), delay.get_data()
+
+    # correct no. counts
+    assert psino.sum() == lm._make_tag_mask('prompt').sum()
+    assert dsino.sum() == lm._make_tag_mask('delay').sum()
+
+    # correct shape
+    assert psino.shape == dsino.shape
+    assert psino.ndim == 3
+
+
+def test_ListMode_unlist_tof():
+    lm = ListMode.from_file(hoffrock_ptd)
+    prompt, delay = lm.unlist(keep_tof=True)
+    psino, dsino = prompt.get_data(), delay.get_data()
+
+    # correct no. counts
+    assert psino.sum() == lm._make_tag_mask('prompt').sum()
+    assert dsino.sum() == lm._make_tag_mask('delay').sum()
+
+    # correct shape
+    assert psino.shape == dsino.shape
+    assert psino.ndim == 4
+
+    # tof bins aren't replicated or 0
+    assert np.any(psino[:, :, :, 6] != psino[:, :, :, 7])
+    psino_tof_sums = psino.sum(axis=(0, 1, 2))
+    dsino_tof_sums = dsino.sum(axis=(0, 1, 2))
+    assert np.all(psino_tof_sums[:13] > 0)
+    assert np.all(psino_tof_sums[13] == 0)  # final bin is delays
+    assert np.all(dsino_tof_sums[:13] == 0)  # no tof for delays
+    assert np.all(dsino_tof_sums[13] > 0)
 
 
 def test_ListMode_extract():
