@@ -119,7 +119,7 @@ class InterfileCSA(object):
 
         return self._ifl
 
-    def to_interfile(self, basename):
+    def to_interfile(self, basename, abs_data_file=False):
         img_type = self.dcm.ImageType[-1]
         if 'LISTMODE' in img_type:
             header_ext = '.hl'
@@ -134,14 +134,18 @@ class InterfileCSA(object):
         # correct name of data file tag
         new_ifl = copy.copy(self.ifl)
 
-        old_data_file_full = header['name of data file']
+        data_file = basename + data_ext
+        if abs_data_file:
+            data_file = os.path.abspath(data_file)
+
+        old_data_file_full = self['name of data file']
         old_data_file_short = (old_data_file_full
                                .replace('/', '\\')
                                .split('\\'))[-1]
-        new_ifl = Interfile(
+        new_ifl = interfile.Interfile(
             source=(str(self.ifl)
-                    .replace(old_data_file_full, os.path.abspath(data_file))
-                    .replace(old_data_file_short, os.path.abspath(data_file))))
+                    .replace(old_data_file_full, data_file)
+                    .replace(old_data_file_short, data_file)))
 
         new_ifl.to_filename(basename + header_ext)
         self.data.tofile(basename + data_ext)
