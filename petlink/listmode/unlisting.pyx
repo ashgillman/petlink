@@ -36,7 +36,7 @@ def unlist(np.ndarray[CPacket, ndim=1] lm not None, shape not None,
         assert d > 0
 
     cdef:
-        CListIdx pidx, lastthrottle = 0, THROTTLE = 1000
+        CListIdx pidx, lastthrottle = 0, THROTTLE = 10000
         CPacket packet
         CSinoIdxElem E = shape[0]
         CSinoIdxElem A = shape[1]
@@ -44,33 +44,32 @@ def unlist(np.ndarray[CPacket, ndim=1] lm not None, shape not None,
         CSinoIdxElem T = shape[3]
 
     if tof:
-        unlist_shape = shape # E, A, S, T
+        unlist_shape = shape              # E, A, S, T
     else:
-        unlist_shape = shape[:3] # E, A, S
+        unlist_shape = shape[:3] + (1, )  # E, A, S
 
-    try:
-        psino = np.zeros(unlist_shape, dtype=NpCount)
-        dsino = np.zeros(unlist_shape, dtype=NpCount)
-    except MemoryError:
-        # out of memory... Let's revert to a memory-mapped file
-        with tempfile.TemporaryFile() as pfile:
-            psino = np.memmap(pfile, mode='w+',
-                              shape=unlist_shape, dtype=NpCount)
-        with tempfile.TemporaryFile() as dfile:
-            dsino = np.memmap(dfile, mode='w+',
-                              shape=unlist_shape, dtype=NpCount)
+    cdef:
+        CCount[:, :, :, :] psino = np.zeros(unlist_shape, dtype=NpCount)
+        CCount[:, :, :, :] dsino = np.zeros(unlist_shape, dtype=NpCount)
+    # except MemoryError:
+    #     # out of memory... Let's revert to a memory-mapped file
+    #     with tempfile.TemporaryFile() as pfile:
+    #         psino = np.memmap(pfile, mode='w+',
+    #                           shape=unlist_shape, dtype=NpCount)
+    #     with tempfile.TemporaryFile() as dfile:
+    #         dsino = np.memmap(dfile, mode='w+',
+    #                           shape=unlist_shape, dtype=NpCount)
 
-    for pidx in range(lm.size):
+    for pidx in range(len(lm)):
         packet = lm[pidx]
         # accumulate counts
         if is_event(packet):
-            if tof:
-                bin_event(dsino if is_event_delay(packet) else psino,
-                          packet, E, A, S, T, n_axials=S, negate_delays=False)
+            if is_event_delay(packet):
+                bin_event(dsino, packet, E, A, S, T, n_axials=S,
+                          tof=tof, negate_delays=False)
             else:
-                bin_event_no_tof(dsino if is_event_delay(packet) else psino,
-                                 packet, E, A, S, T, n_axials=S,
-                                 negate_delays=False)
+                bin_event(psino, packet, E, A, S, T, n_axials=S,
+                          tof=tof, negate_delays=False)
 
         elif pidx > lastthrottle + THROTTLE:
             # Check if user C-c'ed
@@ -81,7 +80,13 @@ def unlist(np.ndarray[CPacket, ndim=1] lm not None, shape not None,
                 bar.update(pidx)
 
     # convert back to real Numpy
-    return tuple(np.array(sino, dtype=NpCount) for sino in (psino, dsino))
+    if tof:
+        np_psino = np.array(psino, dtype=NpCount)
+        np_dsino = np.array(dsino, dtype=NpCount)
+    else:
+        np_psino = np.array(psino, dtype=NpCount).squeeze()
+        np_dsino = np.array(dsino, dtype=NpCount).squeeze()
+    return np_psino, np_dsino
 
 
 @cython.cdivision(True)
@@ -157,15 +162,12 @@ def gated_unlist(
         packet = lm[pidx]
         # accumulate counts
         if is_event(packet):
-            if tof:
-                bin_event((dsinos if is_event_delay(packet)
-                           else psinos)[gate, ...],
-                          packet, E, A, S, T, n_axials=S, negate_delays=False)
+            if is_event_delay(packet):
+                bin_event(dsinos[gate, ...], packet, E, A, S, T, n_axials=S,
+                          tof=tof, negate_delays=False)
             else:
-                bin_event_no_tof((dsinos if is_event_delay(packet)
-                                  else psinos)[gate, ..., 0],
-                                 packet, E, A, S, T, n_axials=S,
-                                 negate_delays=False)
+                bin_event(psinos[gate, ...], packet, E, A, S, T, n_axials=S,
+                          tof=tof, negate_delays=False)
 
         elif is_tag_time(packet):
             # Check if user C-c'ed

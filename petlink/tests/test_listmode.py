@@ -62,8 +62,11 @@ def test_ListMode_time_at_start_is_0():
 def test_ListMode_unlist():
     lm = ListMode.from_file(hoffrock_ptd)
     prompt, delay = lm.unlist()
-    assert prompt.data.sum() == lm._make_tag_mask('prompt').sum()
-    assert delay.data.sum() == lm._make_tag_mask('delay').sum()
+    assert prompt.get_data().sum() == lm._make_tag_mask('prompt').sum()
+    assert delay.get_data().sum() == lm._make_tag_mask('delay').sum()
+    print(prompt.get_data().shape)
+    assert prompt.get_data().shape == delay.get_data().shape
+    assert prompt.get_data().ndim == 3
 
 
 def test_ListMode_extract():

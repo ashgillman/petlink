@@ -133,18 +133,30 @@ cpdef inline CTimeIdx begin(np.ndarray[CPacket, ndim=1] lm):
 
 # The following functions get the bin address (element, angle,
 # segment, ToF bin) from a bin index.
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef inline CSinoIdxElem get_e(CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S,
                                CSinoIdxElem T, CPacket event) nogil:
     return (event & EVENT_UNMASK) % E
 
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef inline CSinoIdxElem get_a(CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S,
                                CSinoIdxElem T, CPacket event) nogil:
     return (event & EVENT_UNMASK) // E % A
 
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef inline CSinoIdxElem get_s(CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S,
                                CSinoIdxElem T, CPacket event) nogil:
     return (event & EVENT_UNMASK) // (E * A) % S
 
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef inline CSinoIdxElem get_t(CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S,
                                CSinoIdxElem T, CPacket event) nogil:
     return (event & EVENT_UNMASK) // (E * A * S) % T
@@ -162,51 +174,26 @@ def extract_one(event, shape):
 cdef inline void bin_event(
     CCount[:, :, :, :] sino, CPacket packet,
     CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S, CSinoIdxElem T,
-    CSinoIdxElem n_axials, bool negate_delays=True) nogil:
+    CSinoIdxElem n_axials, bool tof=False, bool negate_delays=True) nogil:
     """Bin an event into a sinogram. Delays are negative if negate_delays else
     positive."""
-    cdef CPacket event = packet & EVENT_UNMASK
-
     # only consider segment 0?
-    cdef CSinoIdxElem s = get_s(E, A, S, T, event)
+    cdef CSinoIdxElem s = get_s(E, A, S, T, packet)
     if s >= n_axials:
         return
 
     cdef:
-        CSinoIdxElem e = get_e(E, A, S, T, event)
-        CSinoIdxElem a = get_a(E, A, S, T, event)
-        CSinoIdxElem t = get_t(E, A, S, T, event)
+        CSinoIdxElem e = get_e(E, A, S, T, packet)
+        CSinoIdxElem a = get_a(E, A, S, T, packet)
+        CSinoIdxElem t = 0
+
+    if tof:
+        t = get_t(E, A, S, T, packet)
 
     if negate_delays and is_event_delay(packet): # is delay packet
         sino[e, a, s, t] -= 1
     else: # is event packet or delay but not negating
         sino[e, a, s, t] += 1
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-cdef inline void bin_event_no_tof(
-    CCount[:, :, :] sino, CPacket packet,
-    CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S, CSinoIdxElem T,
-    CSinoIdxElem n_axials, bool negate_delays=True):
-    """Bin an event into a sinogram. Delays are negative if negate_delays else
-    positive."""
-    # if optional n_axials isn't set, use all segments
-    cdef CPacket event = packet & EVENT_UNMASK
-
-    # only consider segment 0?
-    cdef CSinoIdxElem s = get_s(E, A, S, T, event)
-    if s >= n_axials:
-        return
-
-    cdef:
-        CSinoIdxElem e = get_e(E, A, S, T, event)
-        CSinoIdxElem a = get_a(E, A, S, T, event)
-
-    if negate_delays and is_event_delay(packet): # is delay packet
-        sino[e, a, s] -= 1
-    else: # is event packet or delay but not negating
-        sino[e, a, s] += 1
 
 
 @cython.cdivision(True)
