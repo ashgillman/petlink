@@ -8,11 +8,12 @@ import logging
 import os
 import struct
 import io
+import copy
 import collections
 import numpy as np
 import dicom
 
-from petlink import interfile, constants
+from petlink import interfile, constants, ptd
 from petlink.helpers import dicomhelper
 
 
@@ -61,14 +62,14 @@ class InterfileCSA(object):
         if isinstance(data, str) and os.path.exists(data):
             # load data from file
             self._data = np.memmap(data, mode='r',
-                                   dtype=self.ifl.dtype)
+                                   dtype=self.ifl.get_datatype())
         elif data is not None:
             # data was passed
             self._data = data
         elif constants.DCM_CSA_DATA in self.dcm:
             # load data from dcm
             self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
-                                       dtype=self.ifl.dtype)
+                                       dtype=self.ifl.get_datatype())
 
     # IO
 
@@ -76,13 +77,14 @@ class InterfileCSA(object):
     def from_ptd(ptd_file):
         """Load a InterfileCSA object from a .ptd file."""
         csa = InterfileCSA(ptd.read_dcm(ptd_file))
-        return InterfileCSA(data=ptd.read_data(ptd_file, dtype=csa.ifl.dtype),
-                            dcm=csa.dcm)
+        return InterfileCSA(
+            data=ptd.read_data(ptd_file, dtype=csa.ifl.get_datatype()),
+            dcm=csa.dcm)
 
     @staticmethod
     def from_file(filename, force_type=None):
-        """Load a InterfileCSA object from a .ptd file. Optionally force filetype
-        reading with force_type to 'ptd' or 'dcm'.
+        """Load a InterfileCSA object from a .ptd file. Optionally force
+        filetype reading with force_type to 'ptd' or 'dcm'.
         """
         if force_type == 'ptd' or filename.lower().endswith('.ptd'):
             return InterfileCSA.from_ptd(filename)

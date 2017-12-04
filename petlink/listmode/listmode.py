@@ -7,8 +7,8 @@ import dicom
 import datetime
 import numpy as np
 
-from petlink.listmode import ptd, unlisting
-from petlink import interfile, constants
+from petlink.listmode import unlisting
+from petlink import ptd, interfile, constants
 from petlink.helpers import dicomhelper
 
 
