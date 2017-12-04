@@ -32,3 +32,22 @@ PTD_MAX_DCM_SIZE = 1 * MiB
 
 # Interfile
 IFL_MAX_HEADER_SIZE = 1 * MiB  # max expected, to prevent loading data files
+IFL_MAGIC = '!INTERFILE'
+IFL_MAGIC_END = '!END OF INTERFILE'
+IFL_NONE = '<NONE>'
+IFL_SEP = ':='
+IFL_LIST_START = '{'
+IFL_LIST_END = '}'
+IFL_UNITS_START = '('
+IFL_UNITS_END = ')'
+IFL_INDEX_START = '['
+IFL_INDEX_END = ']'
+
+IFL_DATA_FILE_KEY = 'name of data file'
+IFL_OFFSET_KEY = 'data offset in bytes'
+IFL_DATA_FORMAT_KEY = 'number format'
+IFL_DATA_FORMAT_DEFAULT = 'UNSIGNED INTEGER'
+IFL_DATA_SIZE_KEY = 'number of bytes per pixel'
+IFL_DATA_SIZE_DEFAULT = 4
+IFL_DATA_ORDER_KEY = 'imagedata byte order'
+IFL_DATA_ORDER_DEFAULT = 'LITTLEENDIAN'

@@ -1,11 +1,9 @@
 """Interfile I/O."""
 
 import logging
-
 import os
 import sys
 import ntpath
-import mmap
 import datetime
 from collections import OrderedDict, namedtuple
 import textwrap
@@ -21,13 +19,8 @@ except ImportError as err:
     np_err = err
 
 try:
-    import dicom
     from dicom.errors import InvalidDicomError
 except ImportError as err:
-    print("Warning: Can't import PyDICOM. .ptd data loading is unsupported.",
-          file=sys.stderr)
-    dicom_err = err
-
     class InvalidDicomError(Exception):
         pass
 
@@ -113,30 +106,10 @@ class Interfile(object):
     '%'
     """
 
+    # only need one class level parser, delay initialisation to first instance
     key_value_parser = None
     key_parser = None
     value_parser = None
-
-    INTERFILE_MAGIC = '!INTERFILE'
-    INTERFILE_MAGIC_END = '!END OF INTERFILE'
-    INTERFILE_NONE = '<NONE>'
-    INTERFILE_SEP = ':='
-    INTERFILE_LIST_START = '{'
-    INTERFILE_LIST_END = '}'
-    INTERFILE_UNITS_START = '('
-    INTERFILE_UNITS_END = ')'
-    INTERFILE_INDEX_START = '['
-    INTERFILE_INDEX_END = ']'
-
-    DATA_FILE_KEY = 'name of data file'
-    OFFSET_KEY = 'data offset in bytes'
-
-    DATA_FORMAT_KEY = 'number format'
-    DATA_FORMAT_DEFAULT = 'UNSIGNED INTEGER'
-    DATA_SIZE_KEY = 'number of bytes per pixel'
-    DATA_SIZE_DEFAULT = 4
-    DATA_ORDER_KEY = 'imagedata byte order'
-    DATA_ORDER_DEFAULT = 'LITTLEENDIAN'
 
     def __init__(self, source=None, sourcefile=None, header=None, data=None,
                  dcm=None):
@@ -187,16 +160,19 @@ class Interfile(object):
 
     def get_datatype(self):
         if (self._data is not None
-                and self.DATA_FORMAT_KEY not in self
-                and self.DATA_SIZE_KEY not in self
-                and self.DATA_ORDER_KEY not in self):
+                and constants.IFL_DATA_FORMAT_KEY not in self
+                and constants.IFL_DATA_SIZE_KEY not in self
+                and constants.IFL_DATA_ORDER_KEY not in self):
             # we have a added data but no type information at all
             return self._data.dtype
 
         else:
-            format_ = self.get(self.DATA_FORMAT_KEY, self.DATA_FORMAT_DEFAULT)
-            size = self.get(self.DATA_SIZE_KEY, self.DATA_SIZE_DEFAULT)
-            order = self.get(self.DATA_ORDER_KEY, self.DATA_ORDER_DEFAULT)
+            format_ = self.get(constants.IFL_DATA_FORMAT_KEY,
+                               constants.IFL_DATA_FORMAT_DEFAULT)
+            size = self.get(constants.IFL_DATA_SIZE_KEY,
+                            constants.IFL_DATA_SIZE_DEFAULT)
+            order = self.get(constants.IFL_DATA_ORDER_KEY,
+                             constants.IFL_DATA_ORDER_DEFAULT)
 
             format_ = {
                 'UNSIGNED INTEGER': 'u',
@@ -228,7 +204,7 @@ class Interfile(object):
             ) from err
 
         # check whether the file is absolute or relative
-        data_file = self[self.DATA_FILE_KEY]
+        data_file = self[constants.IFL_DATA_FILE_KEY]
         if not os.path.isabs(data_file):
             try:
                 data_file = os.path.join(
@@ -242,7 +218,7 @@ class Interfile(object):
         if memmap:
             return np.memmap(
                 data_file, dtype=dtype, mode='r',
-                offset=self.header.get(self.OFFSET_KEY, 0))
+                offset=self.header.get(constants.IFL_OFFSET_KEY, 0))
         else:
             return np.fromfile(data_file, dtype=dtype)
 
@@ -314,6 +290,8 @@ class Interfile(object):
                     .replace('ss', '%S'))
         return date_fmt, time_fmt
 
+    # Accessing
+
     def __getitem__(self, key):
         """Indexing is shorthand to get actual value from header. It is also
         caseless."""
@@ -347,6 +325,8 @@ class Interfile(object):
             # create a new key with default metadata
             self.header[key] = Value(value=value)
 
+    # Serialising
+
     def __str__(self):
         """Serialise to Interfile format."""
         content = '\n'.join(self.format_line(k, v)
@@ -356,9 +336,9 @@ class Interfile(object):
         {content}
         {magic_end}{sep}
         ''').format(content=content,
-                    magic=self.INTERFILE_MAGIC,
-                    magic_end=self.INTERFILE_MAGIC_END,
-                    sep=self.INTERFILE_SEP)
+                    magic=constants.IFL_MAGIC,
+                    magic_end=constants.IFL_MAGIC_END,
+                    sep=constants.IFL_SEP)
         return string
 
     def __repr__(self):
@@ -382,14 +362,15 @@ class Interfile(object):
 
             temp_self = Interfile(str(self))
             temp_self.header['name of data file'] = Value(data_file, '!')
-            temp_self.header[self.DATA_FORMAT_KEY] = Value(
+            temp_self.header[constants.IFL_DATA_FORMAT_KEY] = Value(
                 {
                     'i': 'SIGNED INTEGER',
                     'u': 'UNSIGNED INTEGER',
                     'f': 'FLOAT',
                 }[dtype.kind])
-            temp_self.header[self.DATA_SIZE_KEY] = Value(dtype.itemsize, '!')
-            temp_self.header[self.DATA_ORDER_KEY] = Value(
+            temp_self.header[constants.IFL_DATA_SIZE_KEY] = Value(
+                dtype.itemsize, '!')
+            temp_self.header[constants.IFL_DATA_ORDER_KEY] = Value(
                 {
                     '<': 'LITTLEENDIAN',
                     '>': 'BIGENDIAN',
@@ -406,8 +387,8 @@ class Interfile(object):
         unit_str = (
             ' {units_start}{units}{units_end}'.format(
                 units=value.units,
-                units_start=self.INTERFILE_UNITS_START,
-                units_end=self.INTERFILE_UNITS_END)
+                units_start=constants.IFL_UNITS_START,
+                units_end=constants.IFL_UNITS_END)
             if value.units is not None
             else '')
         key_str = '{key_type}{key}{units}'.format(
@@ -418,28 +399,30 @@ class Interfile(object):
             if value.inline:
                 value_str = '{list_start} {list} {list_end}'.format(
                     list=', '.join(str(v) for v in value.value),
-                    list_start=self.INTERFILE_LIST_START,
-                    list_end=self.INTERFILE_LIST_END)
+                    list_start=constants.IFL_LIST_START,
+                    list_end=constants.IFL_LIST_END)
             else:
                 return self._format_multiline(key_str, value)
 
         elif value.value is None:
-            value_str = self.INTERFILE_NONE
+            value_str = constants.IFL_NONE
 
         else:
             value_str = str(value.value)
 
         return '{key} {sep} {value}'.format(
-            key=key_str, value=value_str, sep=self.INTERFILE_SEP)
+            key=key_str, value=value_str, sep=constants.IFL_SEP)
 
     def _format_multiline(self, key_str, value):
         """Used by format_line to format non-inline vectors."""
         return '\n'.join(
             '{key} {index_start}{idx}{index_end} {sep} {value!s}'.format(
-                key=key_str, idx=idx+1, value=val, sep=self.INTERFILE_SEP,
-                index_start=self.INTERFILE_INDEX_START,
-                index_end=self.INTERFILE_INDEX_END)
+                key=key_str, idx=idx+1, value=val, sep=constants.IFL_SEP,
+                index_start=constants.IFL_INDEX_START,
+                index_end=constants.IFL_INDEX_END)
             for idx, val in enumerate(value.value))
+
+    # Parsing
 
     @classmethod
     def _parse(cls, source):
@@ -454,8 +437,8 @@ class Interfile(object):
                                    it will be stored here.
         """
         # Check magic
-        magic = source[:len(cls.INTERFILE_MAGIC)].upper()
-        if not magic == cls.INTERFILE_MAGIC:
+        magic = source[:len(constants.IFL_MAGIC)].upper()
+        if not magic == constants.IFL_MAGIC:
             raise InvalidInterfileError('Interfile magic number missing')
 
         # Top-level parse
@@ -463,7 +446,7 @@ class Interfile(object):
             tokens = cls.key_value_parser.parseString(source, parseAll=True)
         except pp.ParseException as err:
             error_message = str(err) + '\n'
-            error_message += get_parse_exception_context(err, source)
+            error_message += _get_parse_exception_context(err, source)
             raise InvalidInterfileError(error_message) from err
 
         # Now parse each individual key and value
@@ -478,9 +461,9 @@ class Interfile(object):
                 raise InvalidInterfileError(error_message) from err
 
             # Special cases
-            if key_token.key == cls.INTERFILE_MAGIC_END[1:].lower():
+            if key_token.key == constants.IFL_MAGIC_END[1:].lower():
                 break
-            if value_token.value == cls.INTERFILE_NONE:
+            if value_token.value == constants.IFL_NONE:
                 value_token.value = None
 
             try:
@@ -523,13 +506,13 @@ class Interfile(object):
         """
         important_key = pp.Literal('!')
         custom_key = pp.Literal('%')
-        units_start = pp.Literal(cls.INTERFILE_UNITS_START).suppress()
-        units_end = pp.Literal(cls.INTERFILE_UNITS_END).suppress()
-        index_start = pp.Literal(cls.INTERFILE_INDEX_START).suppress()
-        index_end = pp.Literal(cls.INTERFILE_INDEX_END).suppress()
+        units_start = pp.Literal(constants.IFL_UNITS_START).suppress()
+        units_end = pp.Literal(constants.IFL_UNITS_END).suppress()
+        index_start = pp.Literal(constants.IFL_INDEX_START).suppress()
+        index_end = pp.Literal(constants.IFL_INDEX_END).suppress()
         chars = ''.join(c for c in pp.printables
-                        if c not in (cls.INTERFILE_UNITS_START
-                                     + cls.INTERFILE_INDEX_START))
+                        if c not in (constants.IFL_UNITS_START
+                                     + constants.IFL_INDEX_START))
         endl = pp.LineEnd().suppress()
 
         key_type = (pp.Optional(important_key | custom_key, default='')
@@ -556,8 +539,8 @@ class Interfile(object):
         """Initialise a class-level parser, `value_parser`, to parse Interfile
         keys.
         """
-        list_start = pp.Literal(cls.INTERFILE_LIST_START).suppress()
-        list_end = pp.Literal(cls.INTERFILE_LIST_END).suppress()
+        list_start = pp.Literal(constants.IFL_LIST_START).suppress()
+        list_end = pp.Literal(constants.IFL_LIST_END).suppress()
         path_sep = pp.Literal(ntpath.sep)
         endl = pp.LineEnd().suppress()
 
@@ -575,7 +558,7 @@ class Interfile(object):
                       .setParseAction(lambda s, l, t: t))
         path_value = (
             (path_sep + pp.Word(pp.printables) + endl)
-            .setParseAction(parse_interfile_path))
+            .setParseAction(_parse_interfile_path))
         text_value = pp.restOfLine + endl
 
         value_parser = (
@@ -597,11 +580,11 @@ class Interfile(object):
         # constants
         semi = pp.Literal(';')
         # equals = (pp.Optional(pp.Word(' ')).suppress() +
-        #           pp.Literal(cls.INTERFILE_SEP).suppress() +
+        #           pp.Literal(constants.IFL_SEP).suppress() +
         #           pp.Optional(pp.Word(' ')).suppress())
-        equals = pp.Literal(cls.INTERFILE_SEP).suppress()
+        equals = pp.Literal(constants.IFL_SEP).suppress()
         endl = pp.LineEnd().suppress()
-        magic = pp.CaselessLiteral(cls.INTERFILE_MAGIC)
+        magic = pp.CaselessLiteral(constants.IFL_MAGIC)
 
         key = (pp.SkipTo(equals, include=True)
                .setParseAction(pp.downcaseTokens)
@@ -631,19 +614,19 @@ class InvalidInterfileError(Exception):
     pass
 
 
-def parse_interfile_path(tokens):
+def _parse_interfile_path(tokens):
     """Helper for pyparsing. Paths are saved in Windows format, make
     native.
     """
     path = ''.join(tokens)
     path = path.replace(ntpath.sep + ntpath.sep, ntpath.sep)
-    folders = split_ntpath(path)
+    folders = _split_ntpath(path)
     if folders[0] == ntpath.sep:
         folders[0] = os.path.sep
     return reduce(os.path.join, folders)
 
 
-def split_ntpath(path):
+def _split_ntpath(path):
     """Split a windows path into a list of folders (and a file)."""
     folders = []
     path, folder = ntpath.split(path)
@@ -659,7 +642,7 @@ def split_ntpath(path):
     return folders
 
 
-def get_parse_exception_context(error, source):
+def _get_parse_exception_context(error, source):
     """Parse the exception and print the erronous lines of source."""
     line_key = pp.Literal('line:').suppress()
     line_no = pp.Word(pp.nums).setParseAction(lambda t: int(t[0]))
