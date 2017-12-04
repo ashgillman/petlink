@@ -23,6 +23,10 @@ unlisting = Extension(
     extra_compile_args=cython_compile_args,
 )
 
+data_files = [
+    os.path.join('listmode', 'templates', '*.hs'),
+]
+
 
 setup(
     name='petlink',
@@ -32,6 +36,7 @@ setup(
     license='nil',
     packages=find_packages(exclude=['tests']),
     ext_modules=cythonize([unlisting]),
+    package_data=dict(petlink=data_files),
     setup_requires=['pytest-runner', 'cython'],
     install_requires=['numpy', 'pyparsing', 'pydicom'],
     tests_require=['pytest'],
