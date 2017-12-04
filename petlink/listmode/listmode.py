@@ -216,8 +216,6 @@ class ListMode:
 
         if isinstance(template, interfile.Interfile):
             pass
-        elif isinstance(template, str) and os.path.exists(template):
-            template = interfile.Interfile(sourcefile=template)
         elif isinstance(template, str):
             template = interfile.Interfile(source=template)
         else:

@@ -131,8 +131,13 @@ def test_Interfile_format_line():
 
 def test_Interfile_no_magic():
     """Test parsing with a file not beginning with '!INTERFILE'"""
+    # strict
     with pytest.raises(InvalidInterfileError):
         Interfile('\n'.join(t[1][0] for t in test_lines[1:]))
+
+    # not strict
+    Interfile('\n'.join(t[1][0] for t in test_lines[1:]), strict=False)
+
 
 
 def test_Interfile_file(tmpdir):
@@ -141,7 +146,7 @@ def test_Interfile_file(tmpdir):
     ifl = Interfile(header, data=data)
     f = tmpdir.join('interfile.h')
     ifl.to_filename(str(f))
-    parsed = Interfile(sourcefile=str(f))
+    parsed = Interfile(source=str(f))
     for k, v in ifl.header.items():
         assert parsed.header[k] == v
     assert parsed.sourcefile == f
@@ -231,7 +236,7 @@ def test_Interfile_read_data_absolute(tmpdir):
     header_f.write(header_content)
     data_content.tofile(str(data_f))
 
-    parsed = Interfile(sourcefile=str(header_f))
+    parsed = Interfile(source=str(header_f))
     assert (parsed.get_data() == data_content).all()
 
 
@@ -247,7 +252,7 @@ def test_Interfile_read_data_relative(tmpdir):
     header_f.write(header_content)
     data_content.tofile(str(data_f))
 
-    parsed = Interfile(sourcefile=str(header_f))
+    parsed = Interfile(source=str(header_f))
     assert (parsed.get_data() == data_content).all()
 
 
@@ -282,7 +287,7 @@ def test_Interfile_read_data_memmap(tmpdir):
     # header_f.write(header_content)
     # data_content.tofile(str(data_f))
 
-    parsed = Interfile(sourcefile=str(umap_hv))
+    parsed = Interfile(source=str(umap_hv))
     parsed_data = parsed.get_data(memmap=True)
     # assert (parsed_data == data_content).all()
     assert parsed_data.size > 0

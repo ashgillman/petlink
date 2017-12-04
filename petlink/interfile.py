@@ -37,7 +37,7 @@ def load(filename):
 
     This mostly exists to be similar in API to Nibabel.
     """
-    return Interfile(sourcefile=filename)
+    return Interfile(source=filename)
 
 
 def load_plaintext(filename):
@@ -84,10 +84,10 @@ class Interfile(object):
     """Read two-part (header + data) interfile images.
 
     Attributes:
-      sourcefile: Filename of header souce.
-      source: Header file contents.
-      header: Parsed header contents as an OrderedDict.
-      dcm: If read from a .ptd file, the DICOM data.
+        sourcefile: Filename of header souce.
+        source: Header file contents.
+        header: Parsed header contents as an OrderedDict.
+        dcm: If read from a .ptd file, the DICOM data.
 
     To access values, index the Interfile object directly. Use the header
     attribute only if access to metadata is required.
@@ -111,12 +111,12 @@ class Interfile(object):
     key_parser = None
     value_parser = None
 
-    def __init__(self, source=None, sourcefile=None, header=None, data=None,
-                 dcm=None):
+    def __init__(self, source=None, header=None, data=None,
+                 dcm=None, strict=True):
         """Read and/or parse interfile text.
 
-        Inputs:
-        - interfile (str or filename): Interfile header
+        Args:
+            source: Source Intefile string to parse, or file to load and parse.
         """
         # parser init: should only be required once
         if not self.key_value_parser:
@@ -126,21 +126,24 @@ class Interfile(object):
         if not self.value_parser:
             self._initialise_value_parser()
 
-        self.source = source
-        self.sourcefile = sourcefile
         self.header = header
         self._data = data
         self.dcm = dcm
+        self.strict = strict
 
-        if sourcefile and not source:
-            # Read from sourcefile and set any unset attributes.
+        if os.path.exists(source):
+            # load file and update attributes
             try:
-                sourced_attrs = _from_ptd(sourcefile)
+                sourced_attrs = _from_ptd(source)
             except InvalidDicomError:
-                sourced_attrs = _from_plaintext(sourcefile)
+                sourced_attrs = _from_plaintext(source)
             for k, v in sourced_attrs.items():
                 if getattr(self, k, None) is None:
                     setattr(self, k, v)
+
+        else:
+            self.source = source
+            self.sourcefile = None
 
         if self.source:
             # Parse the source.
@@ -430,8 +433,7 @@ class Interfile(object):
 
     # Parsing
 
-    @classmethod
-    def _parse(cls, source):
+    def _parse(self, source):
         """Parse an interfile source.
 
         Inputs:
@@ -444,12 +446,12 @@ class Interfile(object):
         """
         # Check magic
         magic = source[:len(constants.IFL_MAGIC)].upper()
-        if not magic == constants.IFL_MAGIC:
+        if not magic == constants.IFL_MAGIC and self.strict:
             raise InvalidInterfileError('Interfile magic number missing')
 
         # Top-level parse
         try:
-            tokens = cls.key_value_parser.parseString(source, parseAll=True)
+            tokens = self.key_value_parser.parseString(source, parseAll=True)
         except pp.ParseException as err:
             error_message = str(err) + '\n'
             error_message += _get_parse_exception_context(err, source)
@@ -459,8 +461,8 @@ class Interfile(object):
         header = OrderedDict()
         for token in tokens:
             try:
-                key_token = cls.key_parser.parseString(token.key)
-                value_token = cls.value_parser.parseString(token.value)
+                key_token = self.key_parser.parseString(token.key)
+                value_token = self.value_parser.parseString(token.value)
             except pp.ParseException as err:
                 error_message = str(err) + '\n'
                 error_message += token.key + ' : ' + token.value
@@ -605,7 +607,7 @@ class Interfile(object):
         comment = semi + pp.restOfLine + endl
         empty = pp.LineStart().leaveWhitespace() + endl
 
-        key_value_parser = sof + key_values
+        key_value_parser = pp.Optional(sof) + key_values
         key_value_parser.ignore(comment)
         key_value_parser.ignore(empty)
 
