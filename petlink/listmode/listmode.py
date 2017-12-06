@@ -243,7 +243,7 @@ class ListMode:
         lower = self.tags[tag]
         upper = self.tags[
             list(self.tags)[list(self.tags).index(tag) + 1]]
-        return (lower <= self.data) & (self.data  < upper)
+        return (lower <= self.data) & (self.data < upper)
 
     def get_time_at_index(self, index):
         """Get the time in ms since the start of the scan at a given list

@@ -28,7 +28,7 @@ from petlink import constants, ptd
 
 
 Value = namedtuple('Value', 'value key_type units inline')
-Value.__new__.__defaults__ = (None, '', None, False)
+Value.__new__.__defaults__ = (None, '', None, True)
 
 
 def load(filename):
@@ -77,7 +77,7 @@ def _from_ptd(filename):
         # happens, e.g., with norm .ptd's
         data = None
 
-    return dict(source=source, sourcefile=filename, data=data, dcm=dcm)
+    return dict(source=source, sourcefile=filename, data=data)
 
 
 class Interfile(object):
@@ -87,7 +87,6 @@ class Interfile(object):
         sourcefile: Filename of header souce.
         source: Header file contents.
         header: Parsed header contents as an OrderedDict.
-        dcm: If read from a .ptd file, the DICOM data.
 
     To access values, index the Interfile object directly. Use the header
     attribute only if access to metadata is required.
@@ -113,11 +112,17 @@ class Interfile(object):
     value_parser = None
 
     def __init__(self, source=None, header=None, data=None,
-                 dcm=None, strict=True):
+                 strict=True, do_clean=True):
         """Read and/or parse interfile text.
 
         Args:
             source: Source Intefile string to parse, or file to load and parse.
+            header: An existing header OrderedDict.
+            data: Interfile data, a numpy array.
+            strict: Whether to parse as an Interfile (.hv, etc.) or
+                Interfile-like (.par, etc.).
+            do_clean: Whether  to apply  a cleanup  to the  Interfile contents.
+                strict=False implies do_clean=False
         """
         # parser init: should only be required once
         if not self.key_value_parser:
@@ -131,7 +136,6 @@ class Interfile(object):
 
         self.header = header
         self._data = data
-        self.dcm = dcm
         self.strict = strict
 
         if os.path.exists(source):
