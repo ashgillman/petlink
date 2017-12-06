@@ -58,11 +58,12 @@ class InterfileCSA(object):
             raise ValueError("Can't parse DICOM input.")
 
         # Save data, or check dcm for data
-
+        self._data = None
         if isinstance(data, str) and os.path.exists(data):
             # load data from file
             self._data = np.memmap(data, mode='r',
                                    dtype=self.ifl.get_datatype())
+            self.ifl._data = self._data
         elif data is not None:
             # data was passed
             self._data = data
@@ -112,7 +113,8 @@ class InterfileCSA(object):
             if constants.DCM_CSA_DATA_INFO in self.dcm:
                 ifl_source = dicomhelper.decode_ob_header(
                     self.dcm[constants.DCM_CSA_DATA_INFO].value)
-                self._ifl = interfile.Interfile(source=ifl_source)
+                self._ifl = interfile.Interfile(
+                    source=ifl_source, data=self.data)
 
             else:
                 raise ValueError("No CSA header to find interfile in.")
@@ -138,17 +140,17 @@ class InterfileCSA(object):
         if abs_data_file:
             data_file = os.path.abspath(data_file)
 
-        old_data_file_full = self['name of data file']
+        old_data_file_full = self.ifl['name of data file']
         old_data_file_short = (old_data_file_full
                                .replace('/', '\\')
                                .split('\\'))[-1]
         new_ifl = interfile.Interfile(
             source=(str(self.ifl)
                     .replace(old_data_file_full, data_file)
-                    .replace(old_data_file_short, data_file)))
+                    .replace(old_data_file_short, data_file)),
+            data=self.data)
 
         new_ifl.to_filename(basename + header_ext)
-        self.data.tofile(basename + data_ext)
         return basename + header_ext
 
     # CSA Header

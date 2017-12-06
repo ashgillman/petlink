@@ -161,15 +161,17 @@ class Interfile(object):
             logger.warn('Interfile has no source, so header is None.')
             logger.warn(self.source)
 
+    from_file = load
+
     def __copy__(self):
-        return Interfile(str(self))
+        return Interfile(str(self), data=self.get_data(), strict=self.strict)
 
     def get_datatype(self):
         if (self._data is not None
                 and constants.IFL_DATA_FORMAT_KEY not in self
                 and constants.IFL_DATA_SIZE_KEY not in self
                 and constants.IFL_DATA_ORDER_KEY not in self):
-            # we have a added data but no type information at all
+            # we have a added data but have no type information at all
             return self._data.dtype
 
         else:
