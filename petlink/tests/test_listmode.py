@@ -1,20 +1,27 @@
 """Testing for listmode submodule."""
 
+import sys
 import os
+import logging
 import pytest
 import numpy as np
 
-from ..listmode import ListMode
+from petlink import ListMode, Interfile
+
+
+logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
 
 
 HERE = os.path.dirname(__file__)
 
 
 hoffrock_ptd = os.path.join(HERE, 'data', 'hoffrock', 'LM.ptd')
+hoffrock_prompt_hs = os.path.join(HERE, 'data', 'hoffrock', 'lm_prompt.hs')
+hoffrock_delay_hs = os.path.join(HERE, 'data', 'hoffrock', 'lm_delay.hs')
 
 
 def test_ListMode_load_ptd():
-    lm = ListMode.from_file(hoffrock_ptd)
+    ListMode.from_file(hoffrock_ptd)
 
 
 def test_ListMode_get_ifl():
@@ -59,6 +66,7 @@ def test_ListMode_time_at_start_is_0():
     assert lm.get_time_at_index(0) == 0
 
 
+@pytest.mark.slow
 def test_ListMode_unlist():
     lm = ListMode.from_file(hoffrock_ptd)
     prompt, delay = lm.unlist()
@@ -72,7 +80,13 @@ def test_ListMode_unlist():
     assert psino.shape == dsino.shape
     assert psino.ndim == 3
 
+    psino_ref = Interfile.from_file(hoffrock_prompt_hs).get_data()
+    assert np.all(psino == psino_ref.astype(psino.dtype))
+    dsino_ref = Interfile.from_file(hoffrock_delay_hs).get_data()
+    assert np.all(dsino == dsino_ref.astype(dsino.dtype))
 
+
+@pytest.mark.slow
 def test_ListMode_unlist_tof():
     lm = ListMode.from_file(hoffrock_ptd)
     prompt, delay = lm.unlist(keep_tof=True)
