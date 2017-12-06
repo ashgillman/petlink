@@ -126,12 +126,14 @@ class InterfileCSA(object):
         if 'LISTMODE' in img_type:
             header_ext = '.hl'
             data_ext = '.l'
-        elif 'NORM' in img_type:
+        elif 'NORM' in img_type or 'CALIBRATION' in img_type:
             header_ext = '.hn'
             data_ext = '.n'
         elif 'SINO' in img_type:
             header_ext = '.hs'
             data_ext = '.s'
+        else:
+            raise ValueError('Unexpected Image Type: {}'.format(img_type))
 
         # correct name of data file tag
         new_ifl = copy.copy(self.ifl)
