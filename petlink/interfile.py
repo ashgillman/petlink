@@ -195,6 +195,19 @@ class Interfile(object):
 
             return np.dtype(order + format_ + str(size))
 
+    def get_data_file(self):
+        """Return an absolute path to the data file."""
+        data_file = self[constants.IFL_DATA_FILE_KEY]
+        if not os.path.isabs(data_file):
+            try:
+                data_file = os.path.join(
+                    os.path.dirname(self.sourcefile), data_file)
+            except AttributeError as err:
+                raise FileNotFoundError(
+                    'Relative filenames are only supported when '
+                    'source file is known.') from err
+        return data_file
+
     def get_data(self, memmap=False):
         """Retrieve the image data. Optionally, may be returned as a
         numpy memmap rather than an array to avoid loading into
@@ -212,15 +225,7 @@ class Interfile(object):
             ) from err
 
         # check whether the file is absolute or relative
-        data_file = self[constants.IFL_DATA_FILE_KEY]
-        if not os.path.isabs(data_file):
-            try:
-                data_file = os.path.join(
-                    os.path.dirname(self.sourcefile), data_file)
-            except AttributeError as err:
-                raise FileNotFoundError(
-                    'Relative filenames are only supported when '
-                    'source file is known.') from err
+        data_file = self.get_data_file()
         dtype = self.get_datatype()
 
         if memmap:
