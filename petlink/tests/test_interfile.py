@@ -222,6 +222,24 @@ def test_Interfile_add_list():
                           + str(index_val))
 
 
+def test_Interfile_cleanup():
+    ifl = Interfile('\n'.join(t[1][0] for t in test_lines))
+    ifl['patient orientation'] = 'HFS'
+    ifl['image data byte order'] = 'LITTLEENDIAN'
+    ifl['scale factor'] = 2
+    ifl['data offset in bytes'] = 2
+    ifl['image relative start time'] = 0
+    cleaned = Interfile(str(ifl))
+
+    assert cleaned['patient orientation'] == 'head_in'
+    assert cleaned['imagedata byte order'] == 'LITTLEENDIAN'
+    assert 'image data byte order' not in cleaned
+    assert cleaned['scaling factor'] == 2
+    assert 'scale factor' not in cleaned
+    assert cleaned.header['data offset in bytes'].key_type == ';'
+    assert cleaned['image relative start time'] == [0]
+
+
 def test_Interfile_read_data_absolute(tmpdir):
     header_f = tmpdir.join('interfile.h')
     data_f = tmpdir.join('interfile.hx')

@@ -161,7 +161,55 @@ class Interfile(object):
             logger.warn('Interfile has no source, so header is None.')
             logger.warn(self.source)
 
+        if strict and do_clean:
+            self._cleanup()
+
     from_file = load
+
+    def _cleanup(self):
+        """Fix some common Interfile issues."""
+        wrong = 'image data byte order'
+        right = 'imagedata byte order'
+        if wrong in self:
+            tmp = self.header[wrong]
+            self.insert_before(wrong, right, *tmp)
+            del self.header[wrong]
+
+        wrong = 'scale factor'
+        right = 'scaling factor'
+        if wrong in self:
+            tmp = self.header[wrong]
+            self.insert_before(wrong, right, *tmp)
+            del self.header[wrong]
+
+        wrong = 'data offset in bytes'
+        if wrong in self:
+            tmp = self.header[wrong]
+            self[wrong] = Value(tmp.value, ';', tmp.units, tmp.inline)
+
+        wrong = 'image relative start time'
+        if (wrong in self
+                and not isinstance(self[wrong], list)):
+            tmp = self.header[wrong]
+            self[wrong] = Value([tmp.value], tmp.key_type, tmp.units, False)
+
+        wrong = 'patient orientation'
+        if self.get(wrong, '').upper() == 'HFS':
+            self[wrong] = 'head_in'
+        elif self.get(wrong, '').upper() == 'FFS':
+            self[wrong] = 'feet_in'
+
+    def insert_before(self, existing_key, new_key, new_val,
+                      new_key_type='', new_units=None, new_inline=False):
+        """Insert a new_key and new_val before existing_key."""
+        inserted_yet = False
+        for key in list(self.header.keys()):
+            if key == existing_key:
+                self.header[new_key] = Value(
+                    new_val, new_key_type, new_units, new_inline)
+                inserted_yet = True
+            elif inserted_yet:
+                self.header.move_to_end(key)
 
     def __copy__(self):
         return Interfile(str(self), data=self.get_data(), strict=self.strict)
