@@ -223,13 +223,19 @@ class ListMode:
 
         psino = interfile.Interfile(source=str(template), data=psino)
         dsino = interfile.Interfile(source=str(template), data=dsino)
+
+        propagated_properties = ['patient orientation']
+        for prop in propagated_properties:
+            for sino in (psino, dsino):
+                sino[prop] = self.ifl[prop]
+
         return psino, dsino
 
     def extract(self, tag):
         """Extract data belonging to a given tag."""
         lower = self.tags[tag]
         raw = self.data[self._make_tag_mask(tag)]
-        return raw - lower # remove tag
+        return raw - lower  # remove tag
 
     def _make_tag_mask(self, tag):
         """Generate a mask for list mode events matching a given tag.
