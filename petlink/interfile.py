@@ -212,7 +212,8 @@ class Interfile(object):
                 self.header[new_key] = Value(
                     new_val, new_key_type, new_units, new_inline)
                 inserted_yet = True
-            elif inserted_yet:
+
+            if inserted_yet:
                 self.header.move_to_end(key)
 
     def __copy__(self):
