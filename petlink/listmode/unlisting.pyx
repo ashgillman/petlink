@@ -81,11 +81,11 @@ def unlist(np.ndarray[CPacket, ndim=1] lm not None, shape not None,
 
     # convert back to real Numpy
     if tof:
-        np_psino = np.array(psino, dtype=NpCount)
-        np_dsino = np.array(dsino, dtype=NpCount)
+        np_psino = np.asarray(psino)
+        np_dsino = np.asarray(dsino)
     else:
-        np_psino = np.array(psino, dtype=NpCount).squeeze()
-        np_dsino = np.array(dsino, dtype=NpCount).squeeze()
+        np_psino = np.asarray(psino).squeeze()
+        np_dsino = np.asarray(dsino).squeeze()
     return np_psino, np_dsino
 
 

@@ -281,13 +281,38 @@ class Interfile(object):
         dtype = self.get_datatype()
 
         if memmap:
-            return np.memmap(
+            data = np.memmap(
                 data_file, dtype=dtype, mode='r',
                 offset=self.header.get(constants.IFL_OFFSET_KEY, 0))
         else:
-            return np.fromfile(data_file, dtype=dtype)
+            data = np.fromfile(data_file, dtype=dtype)
+
+        if 'matrix size' in self:
+            shape = []
+            size_of_last = 0
+            for m in self['matrix size']:
+                if isinstance(m, list):
+                    shape.append(sum(m))
+                    size_of_last = len(m)
+                else:
+                    if size_of_last > 0:  # ignore dim after compound
+                        assert m == size_of_last
+                    else:
+                        shape.append(m)
+                    size_of_last = 0
+            shape = tuple(shape)
+        else:
+            shape = (-1, )
+
+        logger = logging.getLogger(__name__)
+        logger.debug('Reshaping from {} to {}'.format(data.shape, shape))
+        data = data.reshape(shape, order='F')
+        return data
+
+    # Time
 
     def get_datetime(self, key):
+        """Get a Python datetime object for a give key of date and time."""
         logger = logging.getLogger(__name__)
         # load data and time
         date_v = self.header[key.lower() + ' date']
@@ -423,7 +448,7 @@ class Interfile(object):
                 data_file = filename + '.dat'
 
             dtype = self.get_datatype()
-            data.astype(dtype).tofile(data_file)
+            data.astype(dtype).flatten(order='F').tofile(data_file)
 
             temp_self = Interfile(str(self))
             temp_self.header['name of data file'] = Value(data_file, '!')
