@@ -261,10 +261,10 @@ class Interfile(object):
                     'source file is known.') from err
         return data_file
 
-    def get_data(self, memmap=False):
+    def get_data(self, memmap=False, flat=False):
         """Retrieve the image data. Optionally, may be returned as a
         numpy memmap rather than an array to avoid loading into
-        memory.
+        memory. Optionally may be flat, with shape ignored.
         """
         if self._data is not None:
             return self._data
@@ -288,7 +288,7 @@ class Interfile(object):
         else:
             data = np.fromfile(data_file, dtype=dtype)
 
-        if 'matrix size' in self:
+        if 'matrix size' in self and not flat:
             shape = []
             size_of_last = 0
             for m in self['matrix size']:
@@ -438,7 +438,7 @@ class Interfile(object):
     def to_filename(self, filename):
         """Write interfile to file."""
         try:
-            data = self.get_data()
+            data = self.get_data(flat=True)
         except KeyError:
             data = None
 
