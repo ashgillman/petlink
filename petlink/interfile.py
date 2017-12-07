@@ -455,9 +455,9 @@ class Interfile(object):
             temp_self.header['name of data file'] = Value(data_file, '!')
             temp_self.header[constants.IFL_DATA_FORMAT_KEY] = Value(
                 {
-                    'i': 'SIGNED INTEGER',
-                    'u': 'UNSIGNED INTEGER',
-                    'f': 'FLOAT',
+                    'i': 'signed integer',
+                    'u': 'unsigned integer',
+                    'f': 'float',
                 }[dtype.kind])
             temp_self.header[constants.IFL_DATA_SIZE_KEY] = Value(
                 dtype.itemsize, '!')
