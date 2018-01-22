@@ -22,10 +22,11 @@ let
 
 in
   pythonPackages.buildPythonPackage rec {
-    name = "petlink";
+    pname = "petlink";
+    version = "0.0.0";
     src = ./.;
 
-    buildInputs = python_build_dependencies;
+    checkInputs = python_build_dependencies;
     propagatedBuildInputs = python_dependencies;
-    doCheck = false; # don't have test data
+    doCheck = false;  # don't have test data
   }
