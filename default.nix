@@ -8,6 +8,7 @@ let
     with pythonPackages;
     [
       pytest
+      pytestrunner
     ];
 
   python_dependencies =
@@ -26,7 +27,7 @@ in
     version = "0.0.0";
     src = ./.;
 
-    checkInputs = python_build_dependencies;
+    buildInputs = python_build_dependencies;
     propagatedBuildInputs = python_dependencies;
     doCheck = false;  # don't have test data
   }
