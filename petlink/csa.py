@@ -71,6 +71,7 @@ class InterfileCSA(object):
             # load data from dcm
             self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
                                        dtype=self.ifl.get_datatype())
+            self.ifl._data = self._data
 
     # IO
 
