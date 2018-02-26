@@ -252,13 +252,13 @@ class Interfile(object):
         """Return an absolute path to the data file."""
         data_file = self[constants.IFL_DATA_FILE_KEY]
         if not os.path.isabs(data_file):
-            try:
+            if self.sourcefile is not None:
                 data_file = os.path.join(
                     os.path.dirname(self.sourcefile), data_file)
-            except AttributeError as err:
+            else:
                 raise FileNotFoundError(
                     'Relative filenames are only supported when '
-                    'source file is known.') from err
+                    'source file is known.')
         return data_file
 
     def get_data(self, memmap=False, flat=False):
