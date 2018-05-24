@@ -14,11 +14,15 @@ let
   python_dependencies =
     with pythonPackages;
     [
-      python     # The Interpreter itself
-      cython     # Wrapping cpp in Python
-      numpy      # MATLAB-like vectorised computation
-      pydicom    # DICOM reading for .ptd files
-      pyparsing  # Parsing of text
+      python        # The Interpreter itself
+      click         # CLI
+      cython        # Wrapping cpp in Python
+      numpy         # MATLAB-like vectorised computation
+      progressbar2  # Progress feedback
+      pydicom       # DICOM reading for .ptd files
+      pyparsing     # Parsing of text
+      scipy         # Numeric tools
+      scikitlearn   # Learning tools
     ];
 
 in

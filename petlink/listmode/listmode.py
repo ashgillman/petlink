@@ -47,7 +47,7 @@ class ListMode:
     # def scanner(self):
     #     return scanner.load(str(self.ifl['originating system']))
 
-    # @property
+    @property
     # def mash(self):
     #     return self.scanner['n_crystals'] // 2 // self.ifl['number of views']
 

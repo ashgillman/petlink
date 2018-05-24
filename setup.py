@@ -23,6 +23,17 @@ unlisting = Extension(
     extra_compile_args=cython_compile_args,
 )
 
+tracking = [
+    Extension(
+        'petlink.listmode.{type}_tracking'.format(type=type),
+        [os.path.join('petlink', 'listmode',
+                      '{type}_tracking.pyx'.format(type=type))],
+        include_dirs=[numpy.get_include()],
+        extra_compile_args=cython_compile_args,
+    )
+    for type in ('com', 'sens', 'pca')
+]
+
 data_files = [
     os.path.join('listmode', 'templates', '*.hs'),
 ]
@@ -35,9 +46,14 @@ setup(
     version='0.0.1',
     license='nil',
     packages=find_packages(exclude=['tests']),
-    ext_modules=cythonize([unlisting]),
+    ext_modules=cythonize([unlisting] + tracking),
     package_data=dict(petlink=data_files),
     setup_requires=['pytest-runner', 'cython'],
-    install_requires=['numpy', 'pyparsing', 'pydicom'],
+    install_requires=['numpy', 'pyparsing', 'pydicom', 'click', 'scikit-learn'],
     tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'pettools = petlink.main:cli',
+        ],
+    },
 )

@@ -199,6 +199,33 @@ cdef inline void bin_event(
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
+cdef inline void bin_event_no_tof(
+    CCount[:, :, :] sino, CPacket packet,
+    CSinoIdxElem E, CSinoIdxElem A, CSinoIdxElem S, CSinoIdxElem T,
+    CSinoIdxElem n_axials, bool negate_delays=True):
+    """Bin an event into a sinogram. Delays are negative if negate_delays else
+    positive."""
+    # if optional n_axials isn't set, use all segments
+    cdef CPacket event = packet & EVENT_UNMASK
+
+    # only consider segment 0?
+    cdef CSinoIdxElem s = get_s(E, A, S, T, event)
+    if s >= n_axials:
+        return
+
+    cdef:
+        CSinoIdxElem e = get_e(E, A, S, T, event)
+        CSinoIdxElem a = get_a(E, A, S, T, event)
+
+    if negate_delays and is_event_delay(packet): # is delay packet
+        sino[e, a, s] -= 1
+    else: # is event packet or delay but not negating
+        sino[e, a, s] += 1
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef inline CSurrogateValue decay_correct(CSurrogateValue uncorrected,
                                           CPacket time, double half_life):
     """Correct counts for decays since beginning of scan (or injection).
