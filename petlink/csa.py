@@ -67,8 +67,8 @@ class InterfileCSA(object):
         elif data is not None:
             # data was passed
             self._data = data
-        elif constants.DCM_CSA_DATA in self.dcm:
-            # load data from dcm
+        elif constants.DCM_CSA_DATA in self.dcm and self.ifl:
+            # load data from DICOM if CSA wraps an interfile.
             self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
                                        dtype=self.ifl.get_datatype())
 
@@ -110,14 +110,14 @@ class InterfileCSA(object):
         """read Siemens CSA header as interfile."""
         if not hasattr(self, '_ifl'):
             # Parse or extract ifl as an Interfile
-            if constants.DCM_CSA_DATA_INFO in self.dcm:
+            try:
                 ifl_source = dicomhelper.decode_ob_header(
                     self.dcm[constants.DCM_CSA_DATA_INFO].value)
                 self._ifl = interfile.Interfile(
                     source=ifl_source, data=self.data)
 
-            else:
-                raise ValueError("No CSA header to find interfile in.")
+            except (KeyError, interfile.InvalidInterfileError):
+                self._ifl = None
 
         return self._ifl
 
