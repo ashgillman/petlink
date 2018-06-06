@@ -46,6 +46,13 @@ class ListMode:
     def dcm(self):
         return self.csa and self.csa.dcm
 
+    @property
+    def ifl(self):
+        if self._ifl is not None:
+            return self._ifl
+        elif self.csa and self.csa.ifl:
+            return self.csa.ifl
+
     #
     # Calculated attributes
     #
@@ -99,7 +106,7 @@ class ListMode:
         # Parse or extract ifl as an Interfile
 
         if isinstance(ifl, interfile.Interfile):
-            self.ifl = ifl
+            self._ifl = ifl
 
         elif isinstance(ifl, str) and os.path.exists(ifl):
             raise NotImplementedError('Interfile file input is TODO.')
@@ -107,14 +114,8 @@ class ListMode:
         elif ifl is not None:
             raise ValueError("Can't parse Interfile input.")
 
-        elif self.dcm and constants.DCM_CSA_DATA_INFO in self.dcm:
-            logger.debug('Extracting interfile header from DICOM')
-            ifl_source = dicomhelper.decode_ob_header(
-                self.dcm[constants.DCM_CSA_DATA_INFO].value)
-            self.ifl = interfile.Interfile(source=ifl_source)
-
         else:
-            self.ifl = None
+            self._ifl = None
 
         # Save data, or check dcm for data
 
