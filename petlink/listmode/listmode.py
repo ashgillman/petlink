@@ -7,6 +7,7 @@ import dicom
 import datetime
 import numpy as np
 
+from petlink.csa import InterfileCSA
 from petlink.listmode import unlisting
 from petlink import ptd, interfile, constants
 from petlink.helpers import dicomhelper
@@ -15,7 +16,6 @@ from petlink.helpers import dicomhelper
 HERE = os.path.dirname(__file__)
 
 
-# TODO: inherit from InterfileCSA
 class ListMode:
     """List mode functionality.
 
@@ -37,7 +37,14 @@ class ListMode:
 
     @property
     def data(self):
-        return self._data
+        if self._data is not None:
+            return self._data
+        elif self.csa and self.csa.data:
+            return self.csa.data
+
+    @property
+    def dcm(self):
+        return self.csa and self.csa.dcm
 
     #
     # Calculated attributes
@@ -47,7 +54,7 @@ class ListMode:
     # def scanner(self):
     #     return scanner.load(str(self.ifl['originating system']))
 
-    @property
+    # @property
     # def mash(self):
     #     return self.scanner['n_crystals'] // 2 // self.ifl['number of views']
 
@@ -82,35 +89,12 @@ class ListMode:
         """
         logger = logging.getLogger(__name__)
 
-        # Parse given dcm to a Dataset
+        # Parse given dcm to a CSA
 
-        if isinstance(dcm, dicom.dataset.Dataset):
-            self.dcm = dcm
-
-        elif isinstance(dcm, str) and os.path.exists(dcm):
-            self.dcm = dicom.read_file(dcm)
-
-        elif dcm is not None:
-            raise ValueError(
-                "Can't parse DICOM input: %s. Does file exist?" % dcm)
-
+        if dcm is not None:
+            self.csa = InterfileCSA(dcm, data)
         else:
-            self.dcm = None
-
-        # Save data, or check dcm for data
-
-        if isinstance(data, str) and os.path.exists(data):
-            self._data = np.memmap(data, mode='r',
-                                   dtype=constants.PL_DTYPE)
-        elif data is not None:
-            self._data = data
-
-        elif self.dcm and constants.DCM_CSA_DATA in self.dcm:
-            self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
-                                       dtype=constants.PL_DTYPE)
-
-        else:
-            raise ValueError('No value given or parsable for ListMode data.')
+            self.csa = None
 
         # Parse or extract ifl as an Interfile
 
@@ -131,6 +115,25 @@ class ListMode:
 
         else:
             self.ifl = None
+
+        # Save data, or check dcm for data
+
+        if isinstance(data, str) and os.path.exists(data):
+            self._data = np.memmap(data, mode='r', dtype=constants.PL_DTYPE)
+            dtype = (self.ifl.get_datatype()
+                     if self.ifl is not None
+                     else constants.PL_DTYPE)
+            self._data = np.memmap(data, mode='r', dtype=dtype)
+
+        elif isinstance(data, np.ndarray):
+            self._data = data
+
+        elif self.dcm and constants.DCM_CSA_DATA in self.dcm:
+            self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
+                                       dtype=constants.PL_DTYPE)
+
+        else:
+            raise ValueError('No value given or parsable for ListMode data.')
 
         # Extract unlisting shape
 
