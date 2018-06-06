@@ -55,7 +55,8 @@ class InterfileCSA(object):
             self.dcm = dicom.read_file(dcm)
 
         else:
-            raise ValueError("Can't parse DICOM input.")
+            raise ValueError(
+                "Can't parse DICOM input: %s. Does file exist?" % dcm)
 
         # Save data, or check dcm for data
         self._data = None
