@@ -39,7 +39,7 @@ class ListMode:
     def data(self):
         if self._data is not None:
             return self._data
-        elif self.csa and self.csa.data:
+        elif self.csa and self.csa.data is not None:
             return self.csa.data
 
     @property
@@ -100,6 +100,9 @@ class ListMode:
 
         if dcm is not None:
             self.csa = InterfileCSA(dcm, data)
+            if self.csa.dcm.ImageType[-1] != 'PET_LISTMODE':
+                raise IOError('Invalid DICOM Image Type: %s'
+                              % self.csa.dcm.ImageType)
         else:
             self.csa = None
 
@@ -119,6 +122,7 @@ class ListMode:
 
         # Save data, or check dcm for data
 
+        self._data = None
         if isinstance(data, str) and os.path.exists(data):
             self._data = np.memmap(data, mode='r', dtype=constants.PL_DTYPE)
             dtype = (self.ifl.get_datatype()
@@ -129,11 +133,7 @@ class ListMode:
         elif isinstance(data, np.ndarray):
             self._data = data
 
-        elif self.dcm and constants.DCM_CSA_DATA in self.dcm:
-            self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
-                                       dtype=constants.PL_DTYPE)
-
-        else:
+        elif self.data is None:  # could be implicit from csa
             raise ValueError('No value given or parsable for ListMode data.')
 
         # Extract unlisting shape
