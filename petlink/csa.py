@@ -39,6 +39,33 @@ class InterfileCSA(object):
     def data(self):
         return self._data
 
+    @property
+    def ifl(self):
+        """read Siemens CSA header as interfile."""
+        if not hasattr(self, '_ifl'):
+            # Parse or extract ifl as an Interfile
+            try:
+                ifl_source = dicomhelper.decode_ob_header(
+                    self.dcm[constants.DCM_CSA_DATA_INFO].value)
+                self._ifl = interfile.Interfile(
+                    source=ifl_source, data=self.data)
+
+            except (KeyError, interfile.InvalidInterfileError):
+                self._ifl = None
+
+        return self._ifl
+
+    @property
+    def csa_header(self):
+        """Read the Siemens CSA Header from the DICOM as a dict."""
+        # cache
+        if not hasattr(self, '_csa_header'):
+            # TODO: check (0029,0010) is 'SIEMENS CSA HEADER'?
+            header_data = self.dcm[constants.DCM_CSA_DATA_INFO].value
+            self._csa_header = self._read_csa_header(header_data)
+
+        return self._csa_header
+
     def __init__(self, dcm, data=None):
         """Create a InterfileCSA instance. If loading from a file, can also use
         InterfileCSA.from_file().
@@ -108,22 +135,6 @@ class InterfileCSA(object):
 
     # Interfile
 
-    @property
-    def ifl(self):
-        """read Siemens CSA header as interfile."""
-        if not hasattr(self, '_ifl'):
-            # Parse or extract ifl as an Interfile
-            try:
-                ifl_source = dicomhelper.decode_ob_header(
-                    self.dcm[constants.DCM_CSA_DATA_INFO].value)
-                self._ifl = interfile.Interfile(
-                    source=ifl_source, data=self.data)
-
-            except (KeyError, interfile.InvalidInterfileError):
-                self._ifl = None
-
-        return self._ifl
-
     def to_interfile(self, basename, abs_data_file=False):
         img_type = self.dcm.ImageType[-1]
         if 'LISTMODE' in img_type:
@@ -159,17 +170,6 @@ class InterfileCSA(object):
         return basename + header_ext
 
     # CSA Header
-
-    @property
-    def csa_header(self):
-        """Read the Siemens CSA Header from the DICOM as a dict."""
-        # cache
-        if not hasattr(self, '_csa_header'):
-            # TODO: check (0029,0010) is 'SIEMENS CSA HEADER'?
-            header_data = self.dcm[constants.DCM_CSA_DATA_INFO].value
-            self._csa_header = self._read_csa_header(header_data)
-
-        return self._csa_header
 
     def _read_csa_header(self, dcm_value):
         csa_raw = io.BytesIO(dcm_value)
