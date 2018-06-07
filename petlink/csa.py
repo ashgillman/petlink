@@ -16,6 +16,8 @@ import dicom
 from petlink import interfile, constants, ptd
 from petlink.helpers import dicomhelper
 
+KiB=1024
+
 
 class InterfileCSA(object):
     """Read CSA DICOM files. These may be .IMA, .dcm and .bf pairs, or .ptd
@@ -52,7 +54,7 @@ class InterfileCSA(object):
             self.dcm = dcm
 
         elif isinstance(dcm, str) and os.path.exists(dcm):
-            self.dcm = dicom.read_file(dcm)
+            self.dcm = dicom.read_file(dcm, defer_size=1*KiB)
 
         else:
             raise ValueError(
