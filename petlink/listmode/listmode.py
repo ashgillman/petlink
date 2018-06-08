@@ -10,10 +10,13 @@ import numpy as np
 from petlink.csa import InterfileCSA
 from petlink.listmode import unlisting
 from petlink import ptd, interfile, constants
-from petlink.helpers import dicomhelper
+from petlink.helpers import dicomhelper, progress
 
 
 HERE = os.path.dirname(__file__)
+
+# be explicit about units
+S2MS = 1000
 
 
 class ListMode:
@@ -234,6 +237,16 @@ class ListMode:
                 sino[prop] = self.ifl[prop]
 
         return psino, dsino
+
+    def unlist_series_low_res(self, time_res, max_elem=100, max_ang=10):
+        """Unlist as a series at temporal resolution of time_res. Return sino
+        of prompts less delays.
+        """
+        segments_def = np.array(self.ifl['segment table'], dtype=np.uint16)
+        low_res_shape = (max_elem, max_ang, max(segments_def))
+        return unlisting.unlist_series_low_res(
+            self.data, self.unlist_shape, low_res_shape, segments_def,
+            time_res, progress.ProgressBar(max_value=self.data.size))
 
     def extract(self, tag):
         """Extract data belonging to a given tag."""

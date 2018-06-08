@@ -12,8 +12,20 @@ import numpy as np
 import logging
 import tempfile
 
+
 def find_time_index(np.ndarray[CPacket, ndim=1] lm, CPacket time):
     return _find_time_index(lm, lm.size, time)
+
+
+cdef factors(int n):
+    """Find the factors of a number n."""
+    fs = []
+    for i in range(1, int(np.sqrt(n)) + 1):
+        if n % i == 0:
+            fs.append(i)
+            fs.append(n // i)
+    return set(fs)
+
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
@@ -208,3 +220,108 @@ def gated_unlist(
             ret.append(tuple(np.array(sinos[gidx, ...], dtype=NpCount)
                              for sinos in (psinos, dsinos)))
     return tuple(ret)
+
+
+@cython.cdivision(True)
+@cython.cdivision_warnings(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef unlist_series_low_res(
+        np.ndarray[CPacket, ndim=1] lm, orig_shape, max_shape,
+        CSinoIdxElem[:] segments_def, CTimeIdx time_resolution, bar=None):
+    """Unlist LM into a low resolution sinogram series."""
+    cdef:
+        CPacket packet, time
+        CListIdx pidx
+        CSinoIdxElem E = orig_shape[0]
+        CSinoIdxElem A = orig_shape[1]
+        CSinoIdxElem S = orig_shape[2]
+        CSinoIdxElem T = orig_shape[3]
+        CSinoIdxElem n_axials = segments_def[0]
+        CSinoIdxElem E_max = max_shape[0]
+        CSinoIdxElem A_max = max_shape[1]
+        CSinoIdxElem S_max = max_shape[2]
+        CTimeIdx begin_time = begin(lm)
+        CTimeIdx length = <CTimeIdx>ceil((<double>duration(lm) - begin_time)
+                                         / time_resolution)
+        CSinoIdxElem e, a, s
+        CTimeIdx time_idx = 0, new_time_idx = 0
+        CSinoIdxElem E_, A_, S_
+
+    # new shape is each largest factors of original shape less than max shape
+    for fact in reversed(sorted(factors(E))):
+        if fact <= E_max:
+            E_ = fact
+            break
+    for fact in reversed(sorted(factors(A))):
+        if fact <= A_max:
+            A_ = fact
+            break
+
+    cdef:
+        unsigned int E_dec = E // E_
+        unsigned int A_dec = A // A_
+        # unsigned int S_dec = n_axials // S_
+        CCount[:, :, :, :] sino_series = np.zeros((length, E_, A_, n_axials),
+                                                  dtype=NpCount)
+        CSinoIdxElem[:] ssrb_lut
+
+    assert segments_def[0] == segments_def[1] + 1, 'Span > 1 not yet supported'
+
+    seg_luts = []
+    for seg_idx, seg_size in enumerate(segments_def):
+        seg_luts.append(np.arange(seg_size) + (seg_idx + 2) // 4)
+    ssrb_lut = np.concatenate(seg_luts).astype(NpSinoIdxElem)
+    for s in ssrb_lut:
+        assert s < n_axials
+
+    # print(ssrb_lut.shape, np.bincount(ssrb_lut))
+    # print([x for x in ssrb_lut])
+    # print(min_s, max_s, [x for x in ssrb_lut[min_s:max_s]])
+    # for x in ssrb_lut:
+    #     print(x, end=' ')
+    # print()
+
+    # for each event
+    for pidx in range(len(lm)):
+        packet = lm[pidx]
+        # build a sinogram
+        if is_event(packet):
+            s = get_s(E, A, S, T, packet)
+            # only consider segment 0
+            # if not (min_s <= s < max_s):
+            #     continue
+            # s = get_ssrb_axial(s, segments_def)
+            assert s < S
+            s = ssrb_lut[s]
+            e = get_e(E, A, S, T, packet) // E_dec
+            a = get_a(E, A, S, T, packet) // A_dec
+            # s //= S_dec
+
+            if is_event_delay(packet):
+                sino_series[time_idx, e, a, s] -= 1 # delay, -1
+            else:
+                sino_series[time_idx, e, a, s] += 1 # prompt, +1
+
+        # update time index
+        elif is_tag_time(packet):
+            time = packet & TAG_UNMASK
+            new_time_idx = (time - begin_time) // time_resolution
+            assert new_time_idx < length
+
+            if new_time_idx != time_idx: # next time bin
+                time_idx = new_time_idx
+
+                PyErr_CheckSignals()
+                if bar:
+                    bar.update(pidx)
+
+    if bar: bar.finish()
+
+    # quick sensitivity correction
+    sensitivity = np.hstack([np.arange(n_axials // 2)+1,
+                             np.arange(n_axials // 2)[::-1]+1])
+    sino_series = (sino_series
+                   * (sensitivity.max() / sensitivity)).astype(NpCount)
+
+    return np.array(sino_series, dtype=NpCount)
