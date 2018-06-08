@@ -37,6 +37,13 @@ class InterfileCSA(object):
 
     @property
     def data(self):
+        if (self._data is None
+                and constants.DCM_CSA_DATA in self.dcm
+                and self.ifl):
+            # load data from DICOM if CSA wraps an interfile.
+            self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
+                                       dtype=self.ifl.get_datatype())
+
         return self._data
 
     @property
@@ -48,7 +55,7 @@ class InterfileCSA(object):
                 ifl_source = dicomhelper.decode_ob_header(
                     self.dcm[constants.DCM_CSA_DATA_INFO].value)
                 self._ifl = interfile.Interfile(
-                    source=ifl_source, data=self.data)
+                    source=ifl_source, data=self._data)
 
             except (KeyError, interfile.InvalidInterfileError):
                 self._ifl = None
@@ -88,19 +95,14 @@ class InterfileCSA(object):
                 "Can't parse DICOM input: %s. Does file exist?" % dcm)
 
         # Save data, or check dcm for data
-        self._data = None
         if isinstance(data, str) and os.path.exists(data):
             # load data from file
             self._data = np.memmap(data, mode='r',
                                    dtype=self.ifl.get_datatype())
             self.ifl._data = self._data
-        elif data is not None:
+        else:
             # data was passed
             self._data = data
-        elif constants.DCM_CSA_DATA in self.dcm and self.ifl:
-            # load data from DICOM if CSA wraps an interfile.
-            self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
-                                       dtype=self.ifl.get_datatype())
 
     # IO
 
@@ -132,6 +134,12 @@ class InterfileCSA(object):
 
     def to_ptd(self, filename):
         ptd.write_ptd(self, filename)
+
+    def clear_data_pointer(self):
+        """Clear data and attempt to re-deferred read DICOM file."""
+        if os.path.exists(self.dcm.filename):
+            self._data = None
+            self.dcm = dicom.read_file(self.dcm.filename, defer_size=1*KiB)
 
     # Interfile
 
