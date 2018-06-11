@@ -242,11 +242,14 @@ cpdef unlist_series_low_res(
         CSinoIdxElem A_max = max_shape[1]
         CSinoIdxElem S_max = max_shape[2]
         CTimeIdx begin_time = begin(lm)
-        CTimeIdx length = <CTimeIdx>ceil((<double>duration(lm) - begin_time)
-                                         / time_resolution)
+        CTimeIdx end_time = duration(lm)
+        CTimeIdx length = <CTimeIdx>ceil(
+            <double>(end_time - begin_time) / time_resolution)
         CSinoIdxElem e, a, s
         CTimeIdx time_idx = 0, new_time_idx = 0
         CSinoIdxElem E_, A_, S_
+
+    logger = logging.getLogger(__name__)
 
     # new shape is each largest factors of original shape less than max shape
     for fact in reversed(sorted(factors(E))):
@@ -281,18 +284,22 @@ cpdef unlist_series_low_res(
     # for x in ssrb_lut:
     #     print(x, end=' ')
     # print()
+    cdef unsigned int n_ev = 0
+    cdef unsigned int n_t = 0
+    cdef unsigned int n_o = 0
 
     # for each event
     for pidx in range(len(lm)):
         packet = lm[pidx]
         # build a sinogram
         if is_event(packet):
+            n_ev += 1
             s = get_s(E, A, S, T, packet)
             # only consider segment 0
             # if not (min_s <= s < max_s):
             #     continue
             # s = get_ssrb_axial(s, segments_def)
-            assert s < S
+            assert s < S, 's < S failed'
             s = ssrb_lut[s]
             e = get_e(E, A, S, T, packet) // E_dec
             a = get_a(E, A, S, T, packet) // A_dec
@@ -305,9 +312,13 @@ cpdef unlist_series_low_res(
 
         # update time index
         elif is_tag_time(packet):
+            n_t += 1
             time = packet & TAG_UNMASK
             new_time_idx = (time - begin_time) // time_resolution
-            assert new_time_idx < length
+            if new_time_idx >= length:
+                if time != end_time:
+                    logger.warn('Unlisting early break?')
+                break
 
             if new_time_idx != time_idx: # next time bin
                 time_idx = new_time_idx
@@ -316,7 +327,11 @@ cpdef unlist_series_low_res(
                 if bar:
                     bar.update(pidx)
 
-    if bar: bar.finish()
+        else:
+            n_o += 1
+
+    if bar:
+        bar.finish()
 
     # quick sensitivity correction
     sensitivity = np.hstack([np.arange(n_axials // 2)+1,
@@ -324,4 +339,12 @@ cpdef unlist_series_low_res(
     sino_series = (sino_series
                    * (sensitivity.max() / sensitivity)).astype(NpCount)
 
-    return np.array(sino_series, dtype=NpCount)
+    sino_series_array = np.array(sino_series, dtype=NpCount)
+
+    logger.debug('%s events (%s prompts)'
+                 % (n_ev, (n_ev + sino_series_array.sum()) / 2))
+    logger.debug('%s time tags' % n_t)
+    logger.debug('%s other tags' % n_o)
+    logger.debug('%s total' % len(lm))
+
+    return sino_series_array
