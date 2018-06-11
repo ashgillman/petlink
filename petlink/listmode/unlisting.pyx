@@ -43,9 +43,9 @@ def unlist(np.ndarray[CPacket, ndim=1] lm not None, shape not None,
     Returns:
         The prompt and delay sinograms.
     """
-    assert len(shape) == 4
+    assert len(shape) == 4, 'len(shape) == 4 failed'
     for d in shape:
-        assert d > 0
+        assert d > 0, 'd > 0 failed'
 
     cdef:
         CListIdx pidx, lastthrottle = 0, THROTTLE = 10000
@@ -123,11 +123,11 @@ def gated_unlist(
     Returns:
         A list of 2-tuples containing prompt and delay sinograms for each gate.
     """
-    assert len(shape) == 4
+    assert len(shape) == 4, 'len(shape) == 4 failed'
     for d in shape:
-        assert d > 0
-    assert len(gates) > 0
-    assert n_gates > 0
+        assert d > 0, 'd > 0 failed'
+    assert len(gates) > 0, 'len(gates) > 0 failed'
+    assert n_gates > 0, 'n_gates > 0 failed'
 
     cdef:
         CListIdx gidx, pidx, lastbar = 0, THROTTLE = 10000
@@ -273,7 +273,7 @@ cpdef unlist_series_low_res(
         seg_luts.append(np.arange(seg_size) + (seg_idx + 2) // 4)
     ssrb_lut = np.concatenate(seg_luts).astype(NpSinoIdxElem)
     for s in ssrb_lut:
-        assert s < n_axials
+        assert s < n_axials, '%s in ssrb_lut is > n_axials' % s
 
     # print(ssrb_lut.shape, np.bincount(ssrb_lut))
     # print([x for x in ssrb_lut])
