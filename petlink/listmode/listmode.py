@@ -70,8 +70,18 @@ class ListMode:
 
     @property
     def duration(self):
+        """Get the duration of a scan in ms from data."""
+        return self._duration - self._begin
+
+    @property
+    def _duration(self):
         """Get the duration of a scan based on the data time tags."""
-        return self.get_time_at_index(self.data.size-1)
+        return unlisting.duration(self.data)
+
+    @property
+    def _begin(self):
+        """Get the duration of a scan based on the data time tags."""
+        return unlisting.begin(self.data)
 
     def __init__(self, data=None, dcm=None, ifl=None, #scanner=None,
                  unlist_shape=None):
@@ -269,23 +279,44 @@ class ListMode:
         The first time tag is assigned t=0.
         """
         if index == -1:
-            duration_raw = unlisting.duration(self.data)
+            duration_raw = self._duration
         else:
             duration_raw = unlisting.duration(self.data[:index+1])
+
         if duration_raw == 0:
             # special case, no previous time tags
             return 0
-        return (duration_raw - unlisting.begin(self.data))
+        else:
+            return (duration_raw - self._begin)
 
     def get_index_at_time(self, time):
         """Get the data index for a time tag in ms since the start of the
-        scan.
+        scan, or a datetime object to for DICOM time.
         """
-        if time < 0:
-            time = self.duration + time
-        assert 0 <= time <= self.duration, 'Chosen time out of range.'
-        return unlisting.find_time_index(
-            self.data, unlisting.begin(self.data) + time)
+        if isinstance(time, int):
+            time = self._begin + time
+            if time < 0:
+                time = self._duration + time
+            assert self._begin <= time <= self._duration, \
+                'Chosen time out of range.'
+            return unlisting.find_time_index(self.data, time)
+
+        elif isinstance(time, datetime.datetime):
+            if self.csa is None:
+                raise RuntimeError(
+                    'Can only index on datetime for DICOM ListMode data')
+
+            begin = self.csa.get_datetime('Acquisition')
+            finish = (self.csa.get_datetime('Acquisition')
+                      + datetime.timedelta(milliseconds=self.duration))
+            if not (begin <= time <= finish):
+                raise ValueError('Time to index is outside acquisition time')
+
+            return self.get_index_at_time(
+                int((time - begin).total_seconds() * S2MS))
+
+        else:
+            raise ValueError('Can only index time as int or datetime')
 
     #
     # Indexing
@@ -323,7 +354,7 @@ class ListMode:
                 self.dcm, 'Acquisition')
             new_dcm_acq_time = original_dcm_acq_time + start_delta
             dicomhelper.set_datetime(new_dcm, 'Acquisition',
-                                      new_dcm_acq_time)
+                                     new_dcm_acq_time)
 
             if self.ifl:
                 # stuff new interfile header into DICOM
