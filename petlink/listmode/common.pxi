@@ -306,10 +306,8 @@ cdef CListIdx _find_time_index(np.ndarray[CPacket, ndim=1] lm,
         # smartly guess the next position assuming stable distribution
         # check we are in bounds
         if current.time >= upper.time:
-            print('bump prev')
             current = find_prev_time(lm, lm_size, upper.idx-1)
         elif current.time <= lower.time:
-            print('bump next')
             current = find_next_time(lm, lm_size, lower.idx+1)
 
         # check if we're done!
