@@ -5,6 +5,20 @@ import time
 import datetime
 
 
+# If loading many DICOMs, we can tend to "spew"
+class DuplicateFilter(object):
+    def __init__(self):
+        self.msgs = set()
+
+    def filter(self, record):
+        rv = record.msg not in self.msgs
+        self.msgs.add(record.msg)
+        return rv
+
+
+dup_filter = DuplicateFilter()
+
+
 DCM_DATE_FMT = '%Y%m%d'
 DCM_TIME_FMT = '%H%M%S.%f'
 
@@ -26,8 +40,12 @@ def get_datetime(dcm, type_):
 
     return date_time_str_to_datetime(dcm_date_str, dcm_time_str, dcm)
 
+
 def date_time_str_to_datetime(dcm_date_str, dcm_time_str, dcm=None):
     """Get a Python datatime object."""
+    logger = logging.getLogger(__name__)
+    logger.addFilter(dup_filter)
+
     # Get time zone, {+,-}HHMM
     # NB: I haven't actually ever seen a TimezoneOffsetFromUTC tag...
     if dcm is not None:
@@ -42,7 +60,7 @@ def date_time_str_to_datetime(dcm_date_str, dcm_time_str, dcm=None):
                                                   minutes=int(tz[3:5])))
     else:
         tz = get_local_timezone()
-        logging.getLogger(__name__).warn(
+        logger.warn(
             'No time zone in DICOM. Will be incorrect if acquired in another '
             'time zone to your PC')
 
