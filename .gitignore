@@ -5,6 +5,8 @@ result
 
 # build
 build
+dist
+install
 .eggs
 *.egg-info
 
@@ -20,3 +22,4 @@ __pycache__
 # other
 .envrc
 .gcroots
+result
