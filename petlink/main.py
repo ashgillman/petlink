@@ -186,6 +186,10 @@ def stage(in_directory, out_directory, pattern):
     logger = logging.getLogger(__name__)
 
     for root, _, files in os.walk(in_directory):
+        # often we stage to inside the search directory, skip already staged
+        if root.startswith(out_directory):
+            continue
+
         for f in files:
             f = os.path.join(root, f)
             logger.info(f"Parsing {f}.")
