@@ -1,13 +1,21 @@
 import os
+import shutil
 import logging
 import inspect
-import click
 import numpy as np
 from scipy import signal
+import click
 
 from petlink import listmode
 from petlink.listmode import tracking
 from petlink.helpers import dicomhelper, progress
+
+# pydicom changes the import name
+try:
+    import pydicom
+except ImportError:
+    import dicom as pydicom
+
 
 CM2MM = 10
 S2MS = 1000
@@ -132,6 +140,50 @@ def extract_surrogate_from_pet(surrogate_acq, extract_function, time_res,
         tracking.save_tracking_csv(time, surrogate, out_csv)
 
     return out_csv
+
+
+@cli.group()
+def dicom():
+    """Tools for handling DICOMs."""
+
+
+@dicom.command()
+@click.argument('in_directory', type=click.Path(exists=True), default='.')
+@click.argument('out_directory', type=click.Path(exists=False), default='.')
+@click.option(
+    '--pattern', '-p', type=str,
+    default='{Patient ID}/{Study Description}/{Series Number}-{Series Description}/'
+    '{Instance Number}{ext}',
+    help='Output path format, from out_directory. Python str.format() style.')
+def stage(in_directory, out_directory, pattern):
+    """Reformat a DICOM dump into a usable format.
+
+    \b
+    Pattern is a full path and filename to the output from out_directory as
+    root. Format variables are pydicom's key names (DICOM names without
+    spaces), or
+    - `filename` (input file),
+    - `ext` (input filename extension, includes the dot).
+    """
+    logger = logging.getLogger(__name__)
+
+    for root, _, files in os.walk(in_directory):
+        for f in files:
+            f = os.path.join(root, f)
+            logger.info(f"Parsing {f}.")
+            try:
+                dcm = pydicom.read_file(f)
+                fmt_dict = {i.name: i.value for i in dcm}
+                fmt_dict['filename'] = f
+                fmt_dict['ext'] = os.path.splitext(f)[-1]
+                out_f = os.path.join(out_directory, pattern.format(**fmt_dict))
+                out_d = os.path.dirname(out_f)
+
+                os.makedirs(out_d, exist_ok=True)
+                shutil.copyfile(f, out_f)
+
+            except pydicom.errors.InvalidDicomError:
+                logger.info(f"Couldn't parse {f}.")
 
 
 if __name__ == '__main__':
