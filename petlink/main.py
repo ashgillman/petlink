@@ -21,10 +21,28 @@ CM2MM = 10
 S2MS = 1000
 
 
-@click.group()
+@click.group(context_settings=dict(help_option_names=['-h', '--help']))
 @click.version_option()
-def cli():
+@click.option('-v', '--verbose', count=True, help='Increase verbosity.')
+@click.option('-q', '--quiet', count=True, help='Decrease verbosity.')
+def cli(verbose, quiet):
     """Tools for PET data."""
+    verbosity = verbose - quiet
+
+    # configure logging
+    if verbosity <= -1:
+        log_lev = logging.ERROR
+    elif verbosity == 0:
+        log_lev = logging.WARNING
+    elif verbosity == 1:
+        log_lev = logging.INFO
+    elif verbosity == 2:
+        log_lev = logging.DEBUG
+    elif verbosity >= 3:
+        log_lev = 0
+        print('Vomit mode')
+    print(log_lev)
+    logging.basicConfig(level=log_lev)
 
 
 @cli.group()
