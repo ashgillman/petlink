@@ -204,6 +204,15 @@ def stage(in_directory, out_directory, pattern):
                 os.makedirs(out_d, exist_ok=True)
                 shutil.copyfile(f, out_f)
 
+                # friends
+                friend_types = ['.bf']
+                for friend_type in friend_types:
+                    friend_f = f.replace(fmt_dict['ext'], friend_type)
+                    if os.path.exists(friend_f):
+                        logger.info(f"   Also {friend_f}.")
+                        out_f = out_f.replace(fmt_dict['ext'], friend_type)
+                        shutil.copyfile(friend_f, out_f)
+
             except pydicom.errors.InvalidDicomError:
                 logger.info(f"Couldn't parse {f}.")
 
