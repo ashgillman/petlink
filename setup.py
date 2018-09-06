@@ -48,7 +48,8 @@ setup(
     packages=find_packages(exclude=['tests']),
     ext_modules=cythonize([unlisting] + tracking),
     package_data=dict(petlink=data_files),
-    setup_requires=['pytest-runner', 'cython'],
+    #setup_requires=['pytest-runner', 'cython'],
+    setup_requires=['cython'],
     install_requires=['numpy', 'pyparsing', 'pydicom', 'click', 'scikit-learn'],
     tests_require=['pytest'],
     entry_points={
