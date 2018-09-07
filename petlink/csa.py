@@ -103,6 +103,11 @@ class InterfileCSA(object):
         else:
             # data was passed
             self._data = data
+        elif constants.DCM_CSA_DATA in self.dcm:
+            # load data from dcm
+            self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
+                                       dtype=self.ifl.get_datatype())
+            self.ifl._data = self._data
 
     # IO
 
