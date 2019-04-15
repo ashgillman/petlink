@@ -190,6 +190,9 @@ def _generate_pca_features(
     sino_series = np.sqrt(sino_series) + np.sqrt(sino_series + 1)
     # sino_series = sino_series.astype(np.float16)
 
+    # TODO
+    # should do some smoothing spatially (not in angle dimension)
+
     logger.debug('after scaling: %s %s %s',
                  sino_series.shape, sino_series.dtype,
                  sino_series.sum(axis=(1, 2, 3)))
