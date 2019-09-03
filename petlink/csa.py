@@ -100,14 +100,14 @@ class InterfileCSA(object):
             self._data = np.memmap(data, mode='r',
                                    dtype=self.ifl.get_datatype())
             self.ifl._data = self._data
-        else:
-            # data was passed
-            self._data = data
-        elif constants.DCM_CSA_DATA in self.dcm:
+        elif data is None and constants.DCM_CSA_DATA in self.dcm:
             # load data from dcm
             self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
                                        dtype=self.ifl.get_datatype())
             self.ifl._data = self._data
+        else:
+            # data was passed
+            self._data = data
 
     # IO
 
