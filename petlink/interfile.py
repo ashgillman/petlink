@@ -19,7 +19,7 @@ except ImportError as err:
     np_err = err
 
 try:
-    from dicom.errors import InvalidDicomError
+    from pydicom.errors import InvalidDicomError
 except ImportError as err:
     class InvalidDicomError(Exception):
         pass

@@ -7,9 +7,9 @@ import shutil
 import mmap
 import numpy as np
 try:
-    import dicom
+    import pydicom
 except ImportError:
-    dicom = None
+    pydicom = None
 
 from petlink.constants import (
     PL_DTYPE, PTD_MAX_DCM_SIZE, DCM_MAGIC, DCM_CSA_DATA)
@@ -41,18 +41,18 @@ def read_data(filename, dtype=PL_DTYPE):
 
 def read_dcm(filename):
     """Read the DICOM component of the .ptd file."""
-    if not dicom:
-        raise ImportError("Couldn't import (py)dicom")
+    if not pydicom:
+        raise ImportError("Couldn't import pydicom")
 
     start = _get_start_of_dicom(filename)
     if start < 0:
-        raise dicom.errors.InvalidDicomError('Invalid .ptd, no DICOM magic.')
+        raise pydicom.errors.InvalidDicomError('Invalid .ptd, no DICOM magic.')
 
     # Read everything after DICM magic as a DICOM
     with open(filename, 'rb') as fp:
         fp.seek(start)
-        return dicom.filereader.read_partial(fp, defer_size=10*1024,
-                                             stop_when=_at_lm_data)
+        return pydicom.filereader.read_partial(fp, defer_size=10*1024,
+                                               stop_when=_at_lm_data)
 
 
 def _at_lm_data(tag, VR, length):

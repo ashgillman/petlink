@@ -11,7 +11,7 @@ import io
 import copy
 import collections
 import numpy as np
-import dicom
+import pydicom
 
 from petlink import interfile, constants, ptd
 from petlink.helpers import dicomhelper
@@ -84,11 +84,11 @@ class InterfileCSA(object):
 
         # Parse given dcm to a Dataset
 
-        if isinstance(dcm, dicom.dataset.Dataset):
+        if isinstance(dcm, pydicom.dataset.Dataset):
             self.dcm = dcm
 
         elif isinstance(dcm, str) and os.path.exists(dcm):
-            self.dcm = dicom.read_file(dcm, defer_size=1*KiB)
+            self.dcm = pydicom.read_file(dcm, defer_size=1*KiB)
 
         else:
             raise ValueError(
@@ -144,7 +144,7 @@ class InterfileCSA(object):
         """Clear data and attempt to re-deferred read DICOM file."""
         if os.path.exists(self.dcm.filename):
             self._data = None
-            self.dcm = dicom.read_file(self.dcm.filename, defer_size=1*KiB)
+            self.dcm = pydicom.read_file(self.dcm.filename, defer_size=1*KiB)
 
     # Interfile
 
