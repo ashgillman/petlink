@@ -102,9 +102,17 @@ class InterfileCSA(object):
             self.ifl._data = self._data
         elif data is None and constants.DCM_CSA_DATA in self.dcm:
             # load data from dcm
+            self._data = None  # self.ifl needs this set
+            try:
+                dtype = self.ifl.get_datatype()
+            except AttributeError:
+                dtype = constants.PL_DTYPE  # in case can't read self.ifl
             self._data = np.fromstring(self.dcm[constants.DCM_CSA_DATA].value,
-                                       dtype=self.ifl.get_datatype())
-            self.ifl._data = self._data
+                                       dtype=dtype)
+            try:
+                self.ifl._data = self._data  # fix self.ifl's data
+            except AttributeError:
+                pass  # self.ifl is None..
         else:
             # data was passed
             self._data = data
