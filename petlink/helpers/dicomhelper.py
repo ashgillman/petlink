@@ -7,12 +7,20 @@ import datetime
 
 # If loading many DICOMs, we can tend to "spew"
 class DuplicateFilter(object):
-    def __init__(self):
+    """A class with a filter method that remembers if its seen a value before."""
+    def __init__(self, max_elem=1000):
         self.msgs = set()
+        self.max_elem = max_elem
 
     def filter(self, record):
         rv = record.msg not in self.msgs
         self.msgs.add(record.msg)
+
+        # Prevent a memory leak
+        # dodgy, but just forget a random one...
+        # This ought to be a FIFO queue...
+        if len(self.msgs) > self.max_elem:
+            self.msgs.pop()  
         return rv
 
 
@@ -66,6 +74,7 @@ def date_time_str_to_datetime(dcm_date_str, dcm_time_str, dcm=None):
 
     dt = datetime.datetime.strptime(dcm_date_str + dcm_time_str,
                                     DCM_DATE_FMT + DCM_TIME_FMT)
+    # Now add in the timezone...
     dt = datetime.datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute,
                            dt.second, dt.microsecond, tzinfo=tz)
     return dt
