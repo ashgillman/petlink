@@ -70,16 +70,16 @@ class ListMode:
     @property
     def duration(self):
         """Get the duration of a scan in ms from data."""
-        return self._duration - self._begin
+        return self._end - self._begin
 
     @property
-    def _duration(self):
-        """Get the duration of a scan based on the data time tags."""
+    def _end(self):
+        """Get the end time of a scan based on the data time tags."""
         return unlisting.duration(self.data)
 
     @property
     def _begin(self):
-        """Get the duration of a scan based on the data time tags."""
+        """Get the start time of a scan based on the data time tags."""
         return unlisting.begin(self.data)
 
     def __init__(self, data=None, dcm=None, ifl=None, #scanner=None,
@@ -278,7 +278,7 @@ class ListMode:
         The first time tag is assigned t=0.
         """
         if index == -1:
-            duration_raw = self._duration
+            duration_raw = self._end
         else:
             duration_raw = unlisting.duration(self.data[:index+1])
 
@@ -293,10 +293,11 @@ class ListMode:
         scan, or a datetime object to for DICOM time.
         """
         if isinstance(time, int):
-            time = self._begin + time
             if time < 0:
-                time = self._duration + time
-            assert self._begin <= time <= self._duration, \
+                time = self._end + time
+            else:
+                time = self._begin + time
+            assert self._begin <= time <= self._end, \
                 'Chosen time out of range.'
             return unlisting.find_time_index(self.data, time)
 
@@ -309,7 +310,9 @@ class ListMode:
             finish = (self.csa.get_datetime('Acquisition')
                       + datetime.timedelta(milliseconds=self.duration))
             if not (begin <= time <= finish):
-                raise ValueError('Time to index is outside acquisition time')
+                raise ValueError(
+                    'Time to index is outside acquisition time '
+                    f'- {time} outside ({begin}, {finish})')
 
             return self.get_index_at_time(
                 int((time - begin).total_seconds() * S2MS))
