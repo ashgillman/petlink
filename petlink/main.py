@@ -6,7 +6,7 @@ import numpy as np
 from scipy import signal
 import click
 
-from petlink import listmode
+from petlink import listmode, InterfileCSA
 from petlink.listmode import tracking
 from petlink.helpers import dicomhelper, progress
 
@@ -215,6 +215,26 @@ def stage(in_directory, out_directory, pattern):
 
             except pydicom.errors.InvalidDicomError:
                 logger.info(f"Couldn't parse {f}.")
+
+
+@cli.command()
+@click.argument('in_file', type=click.Path(exists=True))
+@click.argument(
+    'out_stem',
+    type=str,
+    default='{Patient ID}_{Study Description}_{Series Number}-{Series Description}')
+def dcm2ifl(in_file, out_stem):
+    """Convert DICOM, in_file, (.dcm+.bf, .ptd, .IMA) to Interfile, out_stem.{hs,hv,hl}.
+    help='Output file format. Python str.format() style.')
+    """
+    iflcsa = InterfileCSA.from_file(in_file)
+
+    fmt_dict = {i.name: i.value for i in iflcsa.dcm}
+    fmt_dict['filename'] = in_file
+    fmt_dict['ext'] = os.path.splitext(in_file)[-1]
+    stem = out_stem.format(**fmt_dict)
+
+    iflcsa.to_interfile(stem)
 
 
 if __name__ == '__main__':
