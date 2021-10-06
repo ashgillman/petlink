@@ -264,6 +264,8 @@ class Interfile(object):
         """Retrieve the image data. Optionally, may be returned as a
         numpy memmap rather than an array to avoid loading into
         memory. Optionally may be flat, with shape ignored.
+        Return is either a numpy array, or for norm files, a dict of arrays by
+        normalization component.
         """
         if self._data is not None:
             return self._data
@@ -287,27 +289,40 @@ class Interfile(object):
         else:
             data = np.fromfile(data_file, dtype=dtype)
 
+        shape = self.get_shape(flat=flat)
+        logger = logging.getLogger(__name__)
+        logger.debug('Reshaping from {} to {}'.format(data.shape, shape))
+
+        if isinstance(shape, tuple):
+            data = data.reshape(shape, order='F')
+        else:  # list of tuple, assume norm
+            # Pull out and reshape each component, storing in a dict
+            data, data_all = {}, data
+            offset = 0
+            for comp, comp_shape in zip(self['normalization component'], shape):
+                end = offset + np.prod(comp_shape)
+                data[comp] = data_all[offset:end].reshape(comp_shape, order='F')
+
+        return data
+
+    def get_shape(self, flat=False):
+        """Retrieve the data shape. Optionally may be flat, with shape (-1).
+        """
         if 'matrix size' in self and not flat:
-            shape = []
-            size_of_last = 0
-            for m in self['matrix size']:
-                if isinstance(m, list):
-                    shape.append(sum(m))
-                    size_of_last = len(m)
+            depth = lambda L: isinstance(L, list) and max(map(depth, L))+1
+
+            if depth(self['matrix size']) == 1:
+                shape = tuple(self['matrix size'])
+            elif depth(self['matrix size']) == 2:
+                shape = map(tuple, self['matrix size'])
                 else:
-                    if size_of_last > 0:  # ignore dim after compound
-                        assert m == size_of_last
-                    else:
-                        shape.append(m)
-                    size_of_last = 0
-            shape = tuple(shape)
+                raise InvalidInterfileError(
+                    'Unsure how to process shape %s', self['matrix size'])
+
         else:
             shape = (-1, )
 
-        logger = logging.getLogger(__name__)
-        logger.debug('Reshaping from {} to {}'.format(data.shape, shape))
-        data = data.reshape(shape, order='F')
-        return data
+        return shape
 
     # Time
 
@@ -528,8 +543,6 @@ class Interfile(object):
 
         Returns:
         - header (OrderedDict): Parsed source.
-        - key_types (OrderedDict): If a key has a prefix (e.g., '%'),
-                                   it will be stored here.
         """
         # Check magic
         magic = source[:len(constants.IFL_MAGIC)].upper()
@@ -664,23 +677,28 @@ class Interfile(object):
         int_ = pp.Regex(r'[+-]?\d+').setParseAction(lambda t: int(t[0]))
         float_ = (pp.Regex(r'[+-]?\d+\.\d*([eE][+-]?\d+)?')
                   .setParseAction(lambda t: float(t[0])))
+        text_ = pp.Regex(r'[^;]+')
+        list_text_ = pp.Regex(r'[^;,}]+').setParseAction(lambda t: t[0].strip())
 
-        # values
-        int_value = int_ + endl
-        float_value = float_ + endl
-        list_value = ((list_start +
-                       pp.Group(pp.delimitedList(int_ | float_)) +
-                       list_end + endl)
-                      .setParseAction(lambda s, l, t: t))
-        path_value = (
-            (path_sep + pp.Word(pp.printables) + endl)
-            .setParseAction(_parse_interfile_path))
-        text_value = pp.restOfLine + endl
+        # value parsers
+        cls._int_parser = int_ + endl
+        cls._float_parser = float_ + endl
+        cls._list_parser = \
+            list_start \
+            + pp.Group(pp.delimitedList(float_ | int_ | list_text_)) \
+            + list_end + endl
+        cls._path_parser = \
+            (path_sep + pp.Word(pp.printables) + endl) \
+            .setParseAction(_parse_interfile_path)
+        cls._text_parser = text_ + endl
 
         value_parser = (
             pp.Optional(
-                float_value | int_value | list_value | path_value |
-                text_value,
+                cls._float_parser
+                | cls._int_parser
+                | cls._list_parser
+                | cls._path_parser
+                | cls._text_parser,
                 default='')
             .setResultsName('value'))
         cls.value_parser = value_parser

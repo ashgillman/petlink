@@ -41,6 +41,12 @@ test_lines = (
                             'list', [1, 2, 3], '')),
     ('list_unspaced',      ('list unspaced := {1,2,3}',
                             'list unspaced', [1, 2, 3], '')),
+    ('list_weird_spaced',  ('list weird spaced := {1, 2 ,3}',
+                            'list weird spaced', [1, 2, 3], '')),
+    ('list_floats',        ('list of floats := {1.1,2.2 ,3.3}',
+                            'list of floats', [1.1, 2.2, 3.3], '')),
+    ('list_text',          ('list of text := {a, b ,c,d, e f }',
+                            'list of text', ['a', 'b', 'c', 'd', 'e f'], '')),
     ('path',               ('path := \\\\path\\to\\file.file',
                             'path', os.path.join(
                                 os.path.sep, 'path',
@@ -102,10 +108,19 @@ def check_against_test_lines(parsed):
 
 def test_Interfile_individual():
     """Test individual lines of test_lines"""
-    for test, (parsable, key, value, key_type) in test_lines[1:-1]:
-        parsed = Interfile('\n'.join((test_lines[0][1][0],
+    # Interfile._initialise_value_parser()
+    # Interfile._int_parser.setDebug(True)
+    # Interfile._float_parser.setDebug(True)
+    # Interfile._list_parser.setDebug(True)
+    # Interfile._path_parser.setDebug(True)
+    # Interfile._text_parser.setDebug(True)
+
+    start, *middle, end = test_lines
+    for test, (parsable, key, value, key_type) in middle:
+        print(test)
+        parsed = Interfile('\n'.join((start[1][0],
                                       parsable,
-                                      test_lines[-1][1][0])))
+                                      end[1][0])))
         if key is not None:
             assert next(iter(parsed.header.keys())) == key
         if value is not None:
