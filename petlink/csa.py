@@ -168,7 +168,9 @@ class InterfileCSA(object):
             header_ext = '.hs'
             data_ext = '.s'
         else:
-            raise ValueError('Unexpected Image Type: {}'.format(img_type))
+            header_ext = '.ifl'
+            data_ext = '.dat'
+            #raise ValueError('Unexpected Image Type: {}'.format(img_type))
 
         # correct name of data file tag
         new_ifl = copy.copy(self.ifl)
