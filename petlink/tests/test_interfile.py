@@ -153,6 +153,26 @@ def test_Interfile_file(tmpdir):
     assert np.all(parsed.get_data() == data)
 
 
+def test_zero_terminated_file(tmpdir):
+    """E7 Tools norm files have a zero byte on a line at the end..."""
+    header = '\n'.join(t[1][0] for t in test_lines)
+    data = np.arange(50)
+    ifl = Interfile(header, data=data)
+    f = tmpdir.join('interfile.h')
+
+    ifl.to_filename(str(f))
+
+    # add the zero byte line seen in E7 extracted norm files
+    with open(str(f), 'a') as fp:
+        fp.write('\x00\n')
+
+    parsed = Interfile(source=str(f))
+    for k, v in ifl.header.items():
+        assert parsed.header[k] == v
+    assert parsed.sourcefile == f
+    assert np.all(parsed.get_data() == data)
+
+
 def test_Interfile_caseless_lookup():
     parsed = Interfile('\n'.join(t[1][0] for t in test_lines))
     assert parsed['string'] == 'Hello, World!'

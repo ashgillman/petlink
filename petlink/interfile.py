@@ -710,12 +710,17 @@ class Interfile(object):
                  .setParseAction(lambda t: t[0].strip())
                  .setResultsName('value'))
 
-        sof = (magic + equals + endl).suppress()
+        start_of_file = (magic + equals + endl).suppress()
         key_values = pp.ZeroOrMore(pp.Group(key + value))
         comment = semi + pp.restOfLine + endl
         empty = pp.LineStart().leaveWhitespace() + endl
 
-        key_value_parser = pp.Optional(sof) + key_values
+        # E7 Tools norm files
+        zero_termination = (pp.Literal('\x00') + pp.LineEnd()).suppress()
+
+        key_value_parser = pp.Optional(start_of_file) \
+            + key_values \
+            + pp.Optional(zero_termination)
         key_value_parser.ignore(comment)
         key_value_parser.ignore(empty)
 
