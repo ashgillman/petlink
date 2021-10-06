@@ -286,7 +286,7 @@ def test_Interfile_dont_read_data_relative_without_sourcefile(tmpdir):
     assert 'source file' in str(e)
 
 
-# @pytest.mark.skip()
+@pytest.mark.data
 def test_Interfile_read_data_memmap(tmpdir):
     umap_hv = os.path.join(HERE, 'data', 'hoffrock', 'umap.hv')
 

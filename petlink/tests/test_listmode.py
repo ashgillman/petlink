@@ -20,28 +20,33 @@ hoffrock_prompt_hs = os.path.join(HERE, 'data', 'hoffrock', 'lm_prompt.hs')
 hoffrock_delay_hs = os.path.join(HERE, 'data', 'hoffrock', 'lm_delay.hs')
 
 
+@pytest.mark.data
 def test_ListMode_load_ptd():
     ListMode.from_file(hoffrock_ptd)
 
 
+@pytest.mark.data
 def test_ListMode_get_ifl():
     lm = ListMode.from_file(hoffrock_ptd)
     assert lm.ifl
     assert lm.ifl['originating system']
 
 
+@pytest.mark.data
 def test_ListMode_get_data():
     lm = ListMode.from_file(hoffrock_ptd)
     assert isinstance(lm.data, np.ndarray)
     assert lm.data.size > 0
 
 
+@pytest.mark.data
 def test_ListMode_get_properties():
     lm = ListMode.from_file(hoffrock_ptd)
     assert isinstance(lm.unlist_shape, tuple)
     assert lm.duration > 0
 
 
+@pytest.mark.data
 def test_ListMode_time_indexing():
     lm = ListMode.from_file(hoffrock_ptd)
     one_sec_lm = lm.tloc[5000:6000]
@@ -56,17 +61,20 @@ def test_ListMode_time_indexing():
     assert last_sec_lm.get_time_at_index(0) == 0
 
 
+@pytest.mark.data
 def test_ListMode_time_index_consistency():
     lm = ListMode.from_file(hoffrock_ptd)
     assert lm.get_time_at_index(lm.get_index_at_time(100)) == 100
 
 
+@pytest.mark.data
 def test_ListMode_time_at_start_is_0():
     lm = ListMode.from_file(hoffrock_ptd)
     assert lm.get_time_at_index(0) == 0
 
 
 @pytest.mark.slow
+@pytest.mark.data
 def test_ListMode_unlist():
     lm = ListMode.from_file(hoffrock_ptd)
     prompt, delay = lm.unlist()
@@ -87,6 +95,7 @@ def test_ListMode_unlist():
 
 
 @pytest.mark.slow
+@pytest.mark.data
 def test_ListMode_unlist_tof():
     lm = ListMode.from_file(hoffrock_ptd)
     prompt, delay = lm.unlist(keep_tof=True)
@@ -110,6 +119,7 @@ def test_ListMode_unlist_tof():
     assert np.all(dsino_tof_sums[13] > 0)
 
 
+@pytest.mark.data
 def test_ListMode_extract():
     lm = ListMode.from_file(hoffrock_ptd)
     time = lm.extract('time')
