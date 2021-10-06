@@ -229,7 +229,7 @@ def test_Interfile_cleanup():
     ifl['scale factor'] = 2
     ifl['data offset in bytes'] = 2
     ifl['image relative start time'] = 0
-    cleaned = Interfile(str(ifl))
+    cleaned = Interfile(str(ifl), do_clean=True)
 
     assert cleaned['patient orientation'] == 'head_in'
     assert cleaned['imagedata byte order'] == 'LITTLEENDIAN'

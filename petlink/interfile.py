@@ -112,7 +112,7 @@ class Interfile(object):
     value_parser = None
 
     def __init__(self, source=None, header=None, data=None,
-                 strict=True, do_clean=True):
+                 strict=True, do_clean=False):
         """Read and/or parse interfile text.
 
         Args:
@@ -122,7 +122,6 @@ class Interfile(object):
             strict: Whether to parse as an Interfile (.hv, etc.) or
                 Interfile-like (.par, etc.).
             do_clean: Whether  to apply  a cleanup  to the  Interfile contents.
-                strict=False implies do_clean=False
         """
         # parser init: should only be required once
         if not self.key_value_parser:
@@ -165,7 +164,7 @@ class Interfile(object):
             logger.warn('Interfile has no source, so header is None.')
             logger.warn(self.source)
 
-        if strict and do_clean:
+        if do_clean:
             self._cleanup()
 
     from_file = load
