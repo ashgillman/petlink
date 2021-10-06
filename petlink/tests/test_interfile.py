@@ -1,6 +1,7 @@
 """Testing for interfile.py"""
 
 import os
+import pathlib
 from itertools import zip_longest
 import numpy as np
 import pytest
@@ -160,6 +161,22 @@ def test_Interfile_file(tmpdir):
     data = np.arange(50)
     ifl = Interfile(header, data=data)
     f = tmpdir.join('interfile.h')
+    ifl.to_filename(str(f))
+    parsed = Interfile(source=str(f))
+    for k, v in ifl.header.items():
+        assert parsed.header[k] == v
+    assert parsed.sourcefile == f
+    assert np.all(parsed.get_data() == data)
+
+
+def test_Interfile_file_relative(tmpdir):
+    header = '\n'.join(t[1][0] for t in test_lines)
+    data = np.arange(50)
+    ifl = Interfile(header, data=data)
+    os.chdir(tmpdir)
+    filedir = tmpdir.join('subdir').mkdir()
+    f = filedir.join('interfile.h')
+    f = f.relto(tmpdir)
     ifl.to_filename(str(f))
     parsed = Interfile(source=str(f))
     for k, v in ifl.header.items():

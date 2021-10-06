@@ -315,7 +315,7 @@ class Interfile(object):
                 shape = tuple(self['matrix size'])
             elif depth(self['matrix size']) == 2:
                 shape = map(tuple, self['matrix size'])
-                else:
+            else:
                 raise InvalidInterfileError(
                     'Unsure how to process shape %s', self['matrix size'])
 
@@ -465,8 +465,10 @@ class Interfile(object):
             dtype = self.get_datatype()
             data.astype(dtype).flatten(order='F').tofile(data_file)
 
+            data_file_relative = os.path.basename(data_file)
+
             temp_self = Interfile(str(self))
-            temp_self.header['name of data file'] = Value(data_file, '!')
+            temp_self.header['name of data file'] = Value(data_file_relative, '!')
             temp_self.header[constants.IFL_DATA_FORMAT_KEY] = Value(
                 {
                     'i': 'signed integer',
