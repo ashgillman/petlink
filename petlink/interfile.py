@@ -87,6 +87,8 @@ class Interfile(object):
         sourcefile: Filename of header souce.
         source: Header file contents.
         header: Parsed header contents as an OrderedDict.
+        data: A mutable data associated with the Interfile, contrast with
+            get_data() which is always from file.
 
     To access values, index the Interfile object directly. Use the header
     attribute only if access to metadata is required.
@@ -166,6 +168,13 @@ class Interfile(object):
 
         if do_clean:
             self._cleanup()
+
+    @property
+    def data(self):
+        if self._data is None:
+            self._data = self.get_data()
+        
+        return self._data
 
     from_file = load
 
@@ -267,8 +276,8 @@ class Interfile(object):
         Return is either a numpy array, or for norm files, a dict of arrays by
         normalization component.
         """
-        if self._data is not None:
-            return self._data
+        # if self._data is not None:
+        #     return self._data
 
         # Don't bother if we never imported NumPy
         try:
@@ -457,9 +466,12 @@ class Interfile(object):
     def to_filename(self, filename):
         """Write interfile to file."""
         try:
-            data = self.get_data(flat=True)
+            data = self.data
         except KeyError:
             data = None
+
+        if isinstance(data, dict):
+            data = np.concatenate([d.flatten(order='F') for d in data.values()])
 
         if data is not None:
             if filename[-3:-1] == '.h':  # *.h*
