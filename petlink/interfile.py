@@ -302,6 +302,11 @@ class Interfile(object):
             for comp, comp_shape in zip(self['normalization component'], shape):
                 end = offset + np.prod(comp_shape)
                 data[comp] = data_all[offset:end].reshape(comp_shape, order='F')
+                offset += np.prod(comp_shape)
+            if offset != np.prod(data_all.shape):
+                raise InvalidInterfileError(
+                    'Data size differs from Interfile matrix size (%s, %s).',
+                    offset, data_all.shape)
 
         return data
 
