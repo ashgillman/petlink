@@ -486,20 +486,21 @@ class Interfile(object):
 
             temp_self = Interfile(str(self))
             temp_self.header['name of data file'] = Value(data_file_relative, '!')
-            temp_self.header[constants.IFL_DATA_FORMAT_KEY] = Value(
-                {
-                    'i': 'signed integer',
-                    'u': 'unsigned integer',
-                    'f': 'float',
-                }[dtype.kind])
-            temp_self.header[constants.IFL_DATA_SIZE_KEY] = Value(
-                dtype.itemsize, '!')
-            temp_self.header[constants.IFL_DATA_ORDER_KEY] = Value(
-                {
-                    '<': 'LITTLEENDIAN',
-                    '>': 'BIGENDIAN',
-                    '=': sys.byteorder.upper() + 'ENDIAN',
-                }[dtype.byteorder])
+            if self.get_datatype() != temp_self.get_datatype():
+                temp_self.header[constants.IFL_DATA_FORMAT_KEY] = Value(
+                    {
+                        'i': 'signed integer',
+                        'u': 'unsigned integer',
+                        'f': 'float',
+                    }[dtype.kind])
+                temp_self.header[constants.IFL_DATA_SIZE_KEY] = Value(
+                    dtype.itemsize, '!')
+                temp_self.header[constants.IFL_DATA_ORDER_KEY] = Value(
+                    {
+                        '<': 'LITTLEENDIAN',
+                        '>': 'BIGENDIAN',
+                        '=': sys.byteorder.upper() + 'ENDIAN',
+                    }[dtype.byteorder])
         else:
             temp_self = self
 

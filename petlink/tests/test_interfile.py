@@ -155,7 +155,6 @@ def test_Interfile_no_magic():
     Interfile('\n'.join(t[1][0] for t in test_lines[1:]), strict=False)
 
 
-
 def test_Interfile_file(tmpdir):
     header = '\n'.join(t[1][0] for t in test_lines)
     data = np.arange(50)
@@ -167,6 +166,7 @@ def test_Interfile_file(tmpdir):
         assert parsed.header[k] == v
     assert parsed.sourcefile == f
     assert np.all(parsed.get_data() == data)
+    assert parsed.get_datatype() == data.dtype
 
 
 def test_Interfile_file_relative(tmpdir):
@@ -183,6 +183,42 @@ def test_Interfile_file_relative(tmpdir):
         assert parsed.header[k] == v
     assert parsed.sourcefile == f
     assert np.all(parsed.get_data() == data)
+
+
+def test_Interfile_maintains_data_type_key_type(tmpdir):
+    # normally saves as:
+    #    number format := xx
+    #    !number of bytes per pixel := xx
+    #    imagedata byte order := xx
+    header = '\n'.join(t[1][0] for t in test_lines)
+    data = np.arange(50)
+    ifl = Interfile(header, data=data)
+    f = tmpdir.join('interfile.h')
+    ifl.to_filename(str(f))
+    parsed = Interfile(source=str(f))
+
+    assert parsed.header['number format'].key_type == ''
+    assert parsed.header['number of bytes per pixel'].key_type == '!'
+    assert parsed.header['imagedata byte order'].key_type == ''
+
+    # but if we changed that, it will maintain
+    #    !number format := xx
+    #    number of bytes per pixel := xx
+    #    imagedata byte order := xx
+    this_lines = list(test_lines)  # clone
+    this_lines.insert(1, ('', ('!number format := float', '', '', '')))
+    this_lines.insert(2, ('', ('number of bytes per pixel := 4', '', '', '')))
+    this_lines.insert(3, ('', ('imagedata byte order := littleendian', '', '', '')))
+    header = '\n'.join(t[1][0] for t in this_lines)
+    data = np.arange(50)
+    ifl = Interfile(header, data=data)
+    f = tmpdir.join('interfile.h')
+    ifl.to_filename(str(f))
+    parsed = Interfile(source=str(f))
+
+    assert parsed.header['number format'].key_type == '!'
+    assert parsed.header['number of bytes per pixel'].key_type == ''
+    assert parsed.header['imagedata byte order'].key_type == ''
 
 
 def test_zero_terminated_file(tmpdir):
