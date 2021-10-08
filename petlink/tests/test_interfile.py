@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import pyparsing as pp
 
-from ..interfile import Interfile, Value, InvalidInterfileError
+from ..interfile import Interfile, Value, InvalidInterfileError, CaseInsensitiveKey
 from ..constants import PL_DTYPE
 
 
@@ -68,7 +68,7 @@ test_lines = (
     ('unspaced',           ('key 4:=4', 'key 4', 4, '')),
     ('colons:in:key',      ('colons:in:key:=colons:in:value',
                             'colons:in:key', 'colons:in:value', '')),
-    ('ignore case',        ('Ignore Case := yes', 'ignore case', 'yes', '')),
+    ('respect case',       ('ReSpEcT Case := yes', 'ReSpEcT Case', 'yes', '')),
     ('units',              ('units (unit):=value', 'units', 'value', '')),
     ('vector',             ('vector [1] := 0', 'vector', [0], '')),
     ('vector2',            ('vector2 [1] := 0\n'
@@ -91,20 +91,33 @@ def second(iter):
 
 
 def check_against_test_lines(parsed):
-    for actual, expected in zip_longest(
-            parsed.header.keys(),
-            (t[1][1] for t in test_lines[1:-1] if t[1][1] is not None)):
-        assert actual == expected
+    for (actual_key, actual_val), (name, (line, exp_key, exp_val, exp_type)) \
+            in zip_longest(
+                parsed.header.items(),
+                (t for t in test_lines[1:-1] if t[1][1] is not None)):
+        print(name)
+        assert actual_key == exp_key
+        assert actual_val.value == exp_val
+        assert actual_val.key_type == exp_type
 
-    for actual, expected in zip_longest(
-            parsed.header.values(),
-            (t[1][2] for t in test_lines[1:-1] if t[1][2] is not None)):
-        assert actual.value == expected
 
-    for actual, expected in zip_longest(
-            parsed.header.values(),
-            (t[1][3] for t in test_lines[1:-1] if t[1][1] is not None)):
-        assert actual.key_type == expected
+def test_dict_with_caseless_key():
+    a = CaseInsensitiveKey('aAa')
+    b = CaseInsensitiveKey('aAa')
+    c = CaseInsensitiveKey('AaA')
+
+    d = dict()
+    d[a] = 1
+
+    # lookup
+    assert d[b] == 1
+    assert d[c] == 1
+    assert len(d) == 1
+
+    # overwrite preserves original
+    d[c] = 2
+    assert d[b] == 2
+    assert str(list(d.keys())[0]) == 'aAa'
 
 
 def test_Interfile_individual():
@@ -185,6 +198,44 @@ def test_Interfile_file_relative(tmpdir):
     assert np.all(parsed.get_data() == data)
 
 
+def test_Interfile_saving_maintains_case(tmpdir):
+    header = '\n'.join(
+        t[1][0] for t in test_lines
+        if 'float' not in t[0]      # known we won't preserve scientific notation...
+        and 'path' not in t[0]      # TODO, files change OS type
+        and 'comment' not in t[0]   # TODO, preserve these?
+        and 'blank' not in t[0]
+        and 'unordered' not in t[0]  # don't guarantee order
+    )
+    data = np.arange(50)
+    ifl = Interfile(header, data=data)
+    f = tmpdir.join('interfile.h')
+    ifl.to_filename(str(f))
+    parsed = Interfile(source=str(f))
+
+    ifl_src = '\n'.join(
+        line for line in str(ifl).splitlines() if line).replace(' ', '')
+    header_src = '\n'.join(
+        line for line in header.splitlines() if line).replace(' ', '')
+    parsed_src = '\n'.join(
+        line for line in str(parsed).splitlines()
+        if line
+        and 'name of data file' not in line  # skip data-related keys from save
+        and 'number format' not in line
+        and 'number of bytes per pixel' not in line
+        and 'imagedata byte order' not in line
+    ).replace(' ', '')
+
+    print(ifl_src)
+    print(header_src)
+    
+    # strip whitespace
+    # assert (str(ifl).replace(' ', '') == header.replace(' ', ''))
+    # assert (str(parsed).replace(' ', '') == header.replace(' ', ''))
+    assert (ifl_src == header_src)
+    assert (parsed_src == header_src)
+
+
 def test_Interfile_maintains_data_type_key_type(tmpdir):
     # normally saves as:
     #    number format := xx
@@ -243,9 +294,15 @@ def test_zero_terminated_file(tmpdir):
 
 def test_Interfile_caseless_lookup():
     parsed = Interfile('\n'.join(t[1][0] for t in test_lines))
-    assert parsed['string'] == 'Hello, World!'
+    # test key already lower
+    assert parsed['string'] == 'Hello, World!' # actual
     assert parsed['String'] == 'Hello, World!'
     assert parsed['STRING'] == 'Hello, World!'
+
+    # test key mixed
+    print(parsed)
+    assert parsed['ReSpEcT Case'] == 'yes'  # actual
+    assert parsed['rEsPeCt cASE'] == 'yes'
 
 
 def test_Interfile_meta_lookup():

@@ -31,6 +31,25 @@ Value = namedtuple('Value', 'value key_type units inline')
 Value.__new__.__defaults__ = (None, '', None, True)
 
 
+class CaseInsensitiveKey(object):
+    """A class so we can look up key string without case."""
+    def __init__(self, key: str) -> None:
+        super().__init__()
+        self.key = key
+
+    def __hash__(self) -> int:
+        return hash(self.key.lower())
+
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, str):
+            return self.key.lower() == o.lower()
+        if isinstance(o, CaseInsensitiveKey):
+            return self.key.lower() == o.key.lower()
+
+    def __str__(self) -> str:
+        return self.key
+
+
 def load(filename):
     """Load interfile data, either from a plaintext header file or Siemens'
     .ptd format.
@@ -344,9 +363,9 @@ class Interfile(object):
         """Get a Python datetime object for a give key of date and time."""
         logger = logging.getLogger(__name__)
         # load data and time
-        date_v = self.header[key.lower() + ' date']
+        date_v = self.header[key + ' date']
 
-        time_v = self.header[key.lower() + ' time']
+        time_v = self.header[key + ' time']
 
         date_fmt, time_fmt = self._get_date_time_formats_from_units(
             date_v, time_v)
@@ -370,9 +389,9 @@ class Interfile(object):
 
     def set_datetime(self, key, new):
         # load data and time
-        date_v = self.header[key.lower() + ' date']
+        date_v = self.header[key + ' date']
 
-        time_v = self.header[key.lower() + ' time']
+        time_v = self.header[key + ' time']
 
         date_fmt, time_fmt = self._get_date_time_formats_from_units(
             date_v, time_v)
@@ -389,8 +408,8 @@ class Interfile(object):
         tz = datetime.timezone(tz_offset)
 
         # set date and time
-        self[key.lower() + ' date'] = new.astimezone(tz).strftime(date_fmt)
-        self[key.lower() + ' time'] = new.astimezone(tz).strftime(time_fmt)
+        self[key + ' date'] = new.astimezone(tz).strftime(date_fmt)
+        self[key + ' time'] = new.astimezone(tz).strftime(time_fmt)
 
     def _get_date_time_formats_from_units(self, date_value, time_value):
         date_fmt = (date_value.units
@@ -414,7 +433,9 @@ class Interfile(object):
     def __getitem__(self, key):
         """Indexing is shorthand to get actual value from header. It is also
         caseless."""
-        return self.header[key.lower()].value
+        if not isinstance(key, CaseInsensitiveKey):
+            key = CaseInsensitiveKey(key)
+        return self.header[key].value
 
     def get(self, key, default=None):
         """Indexing with a default."""
@@ -432,17 +453,22 @@ class Interfile(object):
         - value: value or Value object. If value, default Value arguments are
         used.
         """
+        if not isinstance(key, CaseInsensitiveKey):
+            key = CaseInsensitiveKey(key)
+
         if isinstance(value, Value):
             # User has done the work
-            self.header[key] = value
+            pass
         elif key in self.header:
             # replace the value for an existing key, retaining metadata
             meta = self.header[key]._asdict()
             del meta['value']
-            self.header[key] = Value(value=value, **meta)
+            value = Value(value=value, **meta)
         else:
             # create a new key with default metadata
-            self.header[key] = Value(value=value)
+            value = Value(value=value)
+
+        self.header[key] = value
 
     # Serialising
 
@@ -593,7 +619,7 @@ class Interfile(object):
                 raise InvalidInterfileError(error_message) from err
 
             # Special cases
-            if key_token.key == constants.IFL_MAGIC_END[1:].lower():
+            if key_token.key == constants.IFL_MAGIC_END[1:]:
                 break
             if value_token.value == constants.IFL_NONE:
                 value_token.value = None
@@ -651,8 +677,7 @@ class Interfile(object):
                     .setResultsName('key_type'))
         key = (pp.OneOrMore(pp.Word(chars))
                .setParseAction(' '.join)
-               .addParseAction(pp.downcaseTokens)
-               .addParseAction(lambda t: t[0].strip())
+               .addParseAction(lambda t: CaseInsensitiveKey(t[0].strip()))
                .setResultsName('key'))
         units = pp.Optional(
             (units_start + pp.SkipTo(units_end, include=True))
@@ -676,7 +701,6 @@ class Interfile(object):
 
         key = (pp.OneOrMore(pp.Word(chars))
                .setParseAction(' '.join)
-               .addParseAction(pp.downcaseTokens)
                .addParseAction(lambda t: t[0].strip())
                .setResultsName('key'))
 
@@ -741,7 +765,6 @@ class Interfile(object):
         magic = pp.CaselessLiteral(constants.IFL_MAGIC)
 
         key = (pp.SkipTo(equals, include=True)
-               .setParseAction(pp.downcaseTokens)
                .addParseAction(lambda t: t[0].strip())
                .setResultsName('key'))
         value = (pp.SkipTo(endl, include=True)
